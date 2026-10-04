@@ -26,7 +26,7 @@ class AppContext:
 
     @classmethod
     def build(cls, settings: Settings) -> "AppContext":
-        db = Database(settings.database_url)
+        db = Database(settings.database_url, settings.db_pool_size, settings.db_max_overflow)
         registry = ModelRegistry(
             settings.model_dir,
             n_samples=settings.dataset_samples,

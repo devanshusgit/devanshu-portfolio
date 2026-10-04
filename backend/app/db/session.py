@@ -13,7 +13,7 @@ class Base(DeclarativeBase):
     pass
 
 
-def make_engine(database_url: str) -> Engine:
+def make_engine(database_url: str, pool_size: int = 10, max_overflow: int = 20) -> Engine:
     if database_url.startswith("sqlite"):
         engine = create_engine(
             database_url,
@@ -29,13 +29,13 @@ def make_engine(database_url: str) -> Engine:
             cur.close()
 
         return engine
-    return create_engine(database_url, pool_pre_ping=True, pool_size=10, max_overflow=20)
+    return create_engine(database_url, pool_pre_ping=True, pool_size=pool_size, max_overflow=max_overflow, pool_recycle=300)
 
 
 class Database:
-    def __init__(self, database_url: str):
+    def __init__(self, database_url: str, pool_size: int = 10, max_overflow: int = 20):
         self.url = database_url
-        self.engine = make_engine(database_url)
+        self.engine = make_engine(database_url, pool_size, max_overflow)
         self.SessionLocal = sessionmaker(bind=self.engine, autoflush=False, expire_on_commit=False)
 
     def create_all(self) -> None:

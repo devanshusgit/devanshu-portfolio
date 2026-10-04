@@ -1,0 +1,10 @@
+**/.venv
+**/node_modules
+**/__pycache__
+frontend/dist
+frontend/test-results
+backend/artifacts/*.joblib
+backend/artifacts/*.json
+backend/*.db
+demo-screenshots
+.env

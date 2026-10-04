@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 
 from app import __version__
@@ -120,7 +122,29 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
     for module in (system, auth, predict, datasets, sensors, history, model, settings):
         app.include_router(module.router)
     app.include_router(sensors.ws_router)
+    if app_settings.frontend_dist:
+        mount_frontend(app, Path(app_settings.frontend_dist))
     return app
+
+
+def mount_frontend(app: FastAPI, dist: Path) -> None:
+    """Serve the built React app (single-container hosting) with SPA fallback."""
+    index = dist / "index.html"
+    if not index.is_file():
+        log.warning("FRONTEND_DIST=%s has no index.html - frontend not served", dist)
+        return
+    root = dist.resolve()
+    app.mount("/assets", StaticFiles(directory=root / "assets"), name="assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    async def spa(path: str):
+        if path.startswith(("api/", "ws/")):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        candidate = (root / path).resolve()
+        # Only serve real files inside dist (no path traversal); otherwise the SPA shell.
+        if path and candidate.is_file() and root in candidate.parents:
+            return FileResponse(candidate)
+        return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
 
 app = create_app()  # uvicorn app.main:app

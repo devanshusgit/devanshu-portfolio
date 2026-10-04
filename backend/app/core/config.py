@@ -70,6 +70,13 @@ class Settings(BaseSettings):
     live_connected_timeout_s: float = 3.0
     simulated_stream_rate_hz: float = 4.0
 
+    # --- Hosting ------------------------------------------------------------
+    # When set, the API also serves the built frontend (single-container deploys).
+    frontend_dist: Path | None = None
+    # Keep small for managed Postgres poolers (e.g. Supabase free tier).
+    db_pool_size: int = 10
+    db_max_overflow: int = 20
+
     @field_validator("environment")
     @classmethod
     def _normalise_env(cls, v: str) -> str:
