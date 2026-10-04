@@ -127,13 +127,13 @@ function Rig({ object, appearance, motion, command, compliance, state, showLabel
 }
 
 /** Static lab set. Memoised: re-rendering it would make <Environment> re-bake its cube map on the GPU. */
-const Lab = memo(function Lab() {
+const Lab = memo(function Lab({ lite }: { lite: boolean }) {
   return (
     <>
       <color attach="background" args={["#070c16"]} />
       <fog attach="fog" args={["#070c16", 7, 16]} />
       <ambientLight intensity={0.45} />
-      <directionalLight position={[-3, 5, -2]} intensity={1.6} castShadow shadow-mapSize={[1024, 1024]} />
+      <directionalLight position={[-3, 5, -2]} intensity={1.6} castShadow={!lite} shadow-mapSize={[1024, 1024]} />
       <directionalLight position={[4, 2.5, 3]} intensity={0.6} color="#a5f3fc" />
       <pointLight position={[0, 2.5, -2]} intensity={6} distance={6} color="#a78bfa" />
       <Environment resolution={128}>
@@ -162,7 +162,7 @@ const Lab = memo(function Lab() {
         fadeStrength={1.5}
         infiniteGrid
       />
-      <ContactShadows position={[0, 0.001, 0]} opacity={0.55} scale={6} blur={2.4} far={2.2} resolution={512} />
+      {!lite && <ContactShadows position={[0, 0.001, 0]} opacity={0.55} scale={6} blur={2.4} far={2.2} resolution={512} />}
     </>
   );
 });
@@ -181,17 +181,35 @@ function AdaptiveCamera({ base }: { base: [number, number, number] }) {
 
 const DEFAULT_CAMERA: [number, number, number] = [-2.6, 1.65, -1.25];
 
+const LITE_KEY = "ng-3d-lite";
+
+function readLite(): boolean {
+  try {
+    return localStorage.getItem(LITE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 /** Keeps a WebGL failure inside the scene panel instead of taking down the whole page. */
-class SceneBoundary extends Component<{ children: ReactNode; onRetry: () => void }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
+class SceneBoundary extends Component<{ children: ReactNode; onError: (e: Error) => void; onRetry: () => void }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error) {
+    this.props.onError(error);
   }
   render() {
-    if (!this.state.failed) return this.props.children;
+    if (!this.state.error) return this.props.children;
     return (
       <div role="alert" className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#070c16] p-6 text-center text-sm text-slate-300">
-        The 3D view could not start on this device (WebGL unavailable or the GPU reset).
+        <div>The browser refused to start the 3D view (WebGL).</div>
+        <div className="max-w-md text-xs text-slate-400">
+          This usually happens after the graphics driver crashed: the browser then blocks 3D for this site. Fully close and reopen the browser, and check that
+          hardware acceleration is turned on in its settings.
+        </div>
+        <code className="max-w-md break-words font-mono text-[11px] text-slate-500">{this.state.error.message}</code>
         <button type="button" onClick={this.props.onRetry} className="rounded-lg border border-cyan-400/40 px-3 py-1.5 text-cyan-300 hover:bg-cyan-400/10">
           Retry 3D view
         </button>
@@ -206,6 +224,17 @@ export function HandScene(props: HandSceneProps) {
   const [generation, setGeneration] = useState(0);
   const [contextLost, setContextLost] = useState(false);
   const [visible, setVisible] = useState(true);
+  // Lite mode (no shadows / antialiasing, DPR 1, low-power GPU) for devices that failed the full scene.
+  const [lite, setLite] = useState(readLite);
+
+  const goLite = useCallback(() => {
+    setLite(true);
+    try {
+      localStorage.setItem(LITE_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   // Stop rendering while the scene is scrolled out of view (saves GPU for the rest of the page).
   useEffect(() => {
@@ -227,32 +256,40 @@ export function HandScene(props: HandSceneProps) {
     );
   }, []);
 
-  // The browser dropped the GPU context (driver reset, memory pressure): rebuild the scene on a fresh one.
+  // The GPU context was dropped (driver reset, memory pressure): rebuild the scene in lite mode.
   useEffect(() => {
     if (!contextLost) return;
     const t = setTimeout(() => {
+      goLite();
       setContextLost(false);
       setGeneration((g) => g + 1);
     }, 800);
     return () => clearTimeout(t);
-  }, [contextLost]);
+  }, [contextLost, goLite]);
+
+  // First failure with the full scene: retry once automatically in lite mode.
+  const onError = useCallback(() => {
+    if (lite) return;
+    goLite();
+    setGeneration((g) => g + 1);
+  }, [lite, goLite]);
 
   return (
     <div ref={wrapper} className={`relative ${props.className ?? "h-[460px] w-full"}`}>
-      <SceneBoundary key={generation} onRetry={() => setGeneration((g) => g + 1)}>
+      <SceneBoundary key={generation} onError={onError} onRetry={() => setGeneration((g) => g + 1)}>
         <Canvas
-          shadows="percentage"
-          dpr={[1, 1.5]}
+          shadows={lite ? false : "percentage"}
+          dpr={lite ? 1 : [1, 1.5]}
           frameloop={visible ? "always" : "never"}
           camera={{ position: cam, fov: 38, near: 0.1, far: 60 }}
-          gl={{ antialias: true, powerPreference: "default" }}
+          gl={{ antialias: !lite, powerPreference: lite ? "low-power" : "default", failIfMajorPerformanceCaveat: false }}
           onCreated={onCreated}
           aria-label={`3D simulation: prosthetic hand and ${props.object.name}, state ${props.state}`}
           role="img"
         >
           <AdaptiveCamera base={cam} />
           <Suspense fallback={null}>
-            <Lab />
+            <Lab lite={lite} />
             <Rig {...props} />
           </Suspense>
           <OrbitControls
