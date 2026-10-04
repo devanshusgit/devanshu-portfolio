@@ -255,7 +255,7 @@ export function Toggle({ checked, onChange, label, description, disabled }: { ch
         onClick={() => onChange(!checked)}
         className={cx("relative h-6 w-11 shrink-0 rounded-full border transition-colors", checked ? "border-accent/50 bg-accent" : "border-line-strong bg-surface-3", disabled && "opacity-50")}
       >
-        <span className={cx("absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow transition-transform", checked ? "translate-x-5.5" : "translate-x-0.5")} />
+        <span className={cx("absolute left-0.5 top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow transition-transform", checked ? "translate-x-5" : "translate-x-0")} />
       </button>
     </div>
   );

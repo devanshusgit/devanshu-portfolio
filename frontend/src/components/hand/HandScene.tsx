@@ -1,9 +1,10 @@
 import { ContactShadows, Environment, Grid, Html, Lightformer, OrbitControls } from "@react-three/drei";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Canvas, useFrame, useThree, type RootState } from "@react-three/fiber";
+import { Component, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import * as THREE from "three";
 import type { SimulationCommand, VirtualObject } from "@/api/types";
-import { blendPose, contactPose, DIGITS, HAND, placement } from "@/sim/kinematics";
+import { blendPose, contactPose, DIGITS, HAND, placement, thumbAbduction } from "@/sim/kinematics";
 import type { MotionController } from "@/sim/motion";
 import type { HandState } from "@/sim/stateMachine";
 import type { Appearance } from "./materials";
@@ -61,7 +62,7 @@ function Rig({ object, appearance, motion, command, compliance, state, showLabel
 
     const hand = handGroup.current;
     if (hand) {
-      hand.position.set(place.originX + (1 - a) * RETRACT_X, place.handY + liftY + (1 - a) * 0.28, HAND.palmLength / 2);
+      hand.position.set(place.originX + (1 - a) * RETRACT_X, place.handY + liftY, HAND.palmLength / 2);
     }
     const obj = objectGroup.current;
     if (obj) {
@@ -77,7 +78,7 @@ function Rig({ object, appearance, motion, command, compliance, state, showLabel
       if (!joints) continue;
       for (let j = 0; j < 3; j++) if (joints[j]) joints[j]!.rotation.x = pose[f][j];
       const sg = rig.current.spread[f];
-      if (sg) sg.rotation.z = SPREAD_SIGN[f] * spread;
+      if (sg) sg.rotation.z = f === "thumb" ? thumbAbduction(closure) : SPREAD_SIGN[f] * spread;
     }
 
     // Tactile sensors: arm during SENSING, glow with contact force, ripple on contact.
@@ -125,7 +126,8 @@ function Rig({ object, appearance, motion, command, compliance, state, showLabel
   );
 }
 
-function Lab() {
+/** Static lab set. Memoised: re-rendering it would make <Environment> re-bake its cube map on the GPU. */
+const Lab = memo(function Lab() {
   return (
     <>
       <color attach="background" args={["#070c16"]} />
@@ -163,7 +165,7 @@ function Lab() {
       <ContactShadows position={[0, 0.001, 0]} opacity={0.55} scale={6} blur={2.4} far={2.2} resolution={512} />
     </>
   );
-}
+});
 
 /** Pull the camera back on narrow (portrait) viewports so the whole grasp stays in frame. */
 function AdaptiveCamera({ base }: { base: [number, number, number] }) {
@@ -179,32 +181,95 @@ function AdaptiveCamera({ base }: { base: [number, number, number] }) {
 
 const DEFAULT_CAMERA: [number, number, number] = [-2.6, 1.65, -1.25];
 
+/** Keeps a WebGL failure inside the scene panel instead of taking down the whole page. */
+class SceneBoundary extends Component<{ children: ReactNode; onRetry: () => void }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div role="alert" className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#070c16] p-6 text-center text-sm text-slate-300">
+        The 3D view could not start on this device (WebGL unavailable or the GPU reset).
+        <button type="button" onClick={this.props.onRetry} className="rounded-lg border border-cyan-400/40 px-3 py-1.5 text-cyan-300 hover:bg-cyan-400/10">
+          Retry 3D view
+        </button>
+      </div>
+    );
+  }
+}
+
 export function HandScene(props: HandSceneProps) {
   const cam = props.cameraPosition ?? DEFAULT_CAMERA;
+  const wrapper = useRef<HTMLDivElement>(null);
+  const [generation, setGeneration] = useState(0);
+  const [contextLost, setContextLost] = useState(false);
+  const [visible, setVisible] = useState(true);
+
+  // Stop rendering while the scene is scrolled out of view (saves GPU for the rest of the page).
+  useEffect(() => {
+    const el = wrapper.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => setVisible(e.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const onCreated = useCallback(({ gl }: RootState) => {
+    gl.domElement.addEventListener(
+      "webglcontextlost",
+      (e) => {
+        e.preventDefault();
+        setContextLost(true);
+      },
+      { once: true },
+    );
+  }, []);
+
+  // The browser dropped the GPU context (driver reset, memory pressure): rebuild the scene on a fresh one.
+  useEffect(() => {
+    if (!contextLost) return;
+    const t = setTimeout(() => {
+      setContextLost(false);
+      setGeneration((g) => g + 1);
+    }, 800);
+    return () => clearTimeout(t);
+  }, [contextLost]);
+
   return (
-    <div className={props.className ?? "h-[460px] w-full"}>
-      <Canvas
-        shadows="percentage"
-        dpr={[1, 1.75]}
-        camera={{ position: cam, fov: 38, near: 0.1, far: 60 }}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
-        aria-label={`3D simulation: prosthetic hand and ${props.object.name}, state ${props.state}`}
-        role="img"
-      >
-        <AdaptiveCamera base={cam} />
-        <Suspense fallback={null}>
-          <Lab />
-          <Rig {...props} />
-        </Suspense>
-        <OrbitControls
-          target={[0.4, 0.5, 0.05]}
-          enablePan={false}
-          minDistance={2.2}
-          maxDistance={8}
-          maxPolarAngle={Math.PI / 2.05}
-          enabled={props.interactive !== false}
-        />
-      </Canvas>
+    <div ref={wrapper} className={`relative ${props.className ?? "h-[460px] w-full"}`}>
+      <SceneBoundary key={generation} onRetry={() => setGeneration((g) => g + 1)}>
+        <Canvas
+          shadows="percentage"
+          dpr={[1, 1.5]}
+          frameloop={visible ? "always" : "never"}
+          camera={{ position: cam, fov: 38, near: 0.1, far: 60 }}
+          gl={{ antialias: true, powerPreference: "default" }}
+          onCreated={onCreated}
+          aria-label={`3D simulation: prosthetic hand and ${props.object.name}, state ${props.state}`}
+          role="img"
+        >
+          <AdaptiveCamera base={cam} />
+          <Suspense fallback={null}>
+            <Lab />
+            <Rig {...props} />
+          </Suspense>
+          <OrbitControls
+            target={[0.4, 0.5, 0.05]}
+            enablePan={false}
+            minDistance={2.2}
+            maxDistance={8}
+            maxPolarAngle={Math.PI / 2.05}
+            enabled={props.interactive !== false}
+          />
+        </Canvas>
+      </SceneBoundary>
+      {contextLost && (
+        <div role="status" className="absolute inset-0 flex items-center justify-center bg-[#070c16] text-sm text-slate-300">
+          Restarting 3D view…
+        </div>
+      )}
     </div>
   );
 }

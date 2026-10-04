@@ -26,7 +26,14 @@ function readTheme(): Theme {
 
 export function applyTheme(theme: Theme) {
   const resolved = theme === "system" ? (window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark") : theme;
-  document.documentElement.dataset.theme = resolved;
+  const root = document.documentElement;
+  if (root.dataset.theme !== resolved) {
+    // Swap the palette in a single paint: otherwise every transition-colors element
+    // animates at once over a full-page repaint, which stalls weaker GPUs.
+    root.dataset.themeSwitching = "";
+    root.dataset.theme = resolved;
+    requestAnimationFrame(() => requestAnimationFrame(() => delete root.dataset.themeSwitching));
+  }
   try {
     localStorage.setItem("ng-theme", theme);
   } catch {

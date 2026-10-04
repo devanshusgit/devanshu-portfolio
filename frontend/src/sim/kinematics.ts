@@ -41,9 +41,9 @@ export const DIGITS: Finger[] = ["thumb", "index", "middle", "ring", "little"];
 export type JointAngles = [number, number, number];
 export type HandPose = Record<Finger, JointAngles>;
 
-/** Open (pre-shape) pose: fingers straight, thumb abducted away from the palm. */
+/** Open (pre-shape) pose: fingers straight, thumb up (see thumbAbduction) with a relaxed curl toward the palm. */
 export const OPEN_POSE: HandPose = {
-  thumb: [-0.45, 0.05, 0.05],
+  thumb: [0.4, 0.45, 0.3],
   index: [-0.05, 0.02, 0.02],
   middle: [-0.05, 0.02, 0.02],
   ring: [-0.05, 0.02, 0.02],
@@ -180,6 +180,19 @@ export function contactPose(obj: VirtualObject, palmHeightFraction?: number): Ha
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+/** Thumb swing about the palm normal when fully open: points it along +X (up in the lab) instead of back along the forearm. */
+export const THUMB_OPEN_ABDUCTION = Math.PI / 2;
+
+/**
+ * Thumb abduction (radians, about the palm normal) for a given closure. The thumb
+ * stands up while the hand is open and swings into the opposing plane the wrap
+ * solver uses as the fingers close, reaching it before contact (closure 0.75).
+ */
+export function thumbAbduction(closure: number): number {
+  const t = Math.min(1, Math.max(0, closure / 0.75));
+  return THUMB_OPEN_ABDUCTION * (1 - t * t * (3 - 2 * t));
+}
 
 /**
  * Blend open -> contact by `closure` (0..1), then add a force-dependent squeeze.

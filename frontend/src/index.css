@@ -162,6 +162,13 @@ body {
   }
 }
 
+/* Set for two frames by applyTheme(): the palette swaps instantly, without transitions. */
+:root[data-theme-switching] *,
+:root[data-theme-switching] *::before,
+:root[data-theme-switching] *::after {
+  transition: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

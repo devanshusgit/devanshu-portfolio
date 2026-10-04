@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Database, Play, Radio, RotateCcw, SlidersHorizontal, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useShallow } from "zustand/react/shallow";
 import { api } from "@/api/client";
 import type { DataSource, Material } from "@/api/types";
 import { ObjectPicker } from "@/components/hand/ObjectPicker";
@@ -18,7 +19,8 @@ const SPEEDS = [0.5, 1, 2, 5];
 
 export default function Lab() {
   const catalog = useCatalog();
-  const prefs = usePrefs();
+  // Only the fields used here, so a theme switch does not re-render the 3D lab.
+  const prefs = usePrefs(useShallow((s) => ({ default_object: s.default_object, playback_speed: s.playback_speed, auto_save_history: s.auto_save_history })));
   const reduced = useReducedMotion();
   const [source, setSource] = useState<DataSource>("SIMULATED");
   const [objectId, setObjectId] = useState(prefs.default_object || "glass");

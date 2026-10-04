@@ -171,7 +171,7 @@ export default function Experiments() {
           </Panel>
           <Panel title="Hand response" subtitle="The hand holds the selected object with the grip commanded for the current input" bodyClassName="p-0" className="overflow-hidden">
             <div className="p-3">
-              <ObjectPicker objects={catalog.objects} value={objectId} onChange={setObjectId} showMaterial={false} />
+              <ObjectPicker objects={catalog.objects} value={objectId} onChange={setObjectId} />
             </div>
             {object ? (
               <HandScene

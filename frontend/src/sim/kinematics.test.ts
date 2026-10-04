@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { VirtualObject } from "@/api/types";
-import { blendPose, contactPose, fingertip, HAND, OPEN_POSE, placement, sectionAt } from "./kinematics";
+import { blendPose, contactPose, fingertip, HAND, OPEN_POSE, placement, sectionAt, THUMB_OPEN_ABDUCTION, thumbAbduction } from "./kinematics";
 
 const profile = {
   id: "p",
@@ -71,5 +71,13 @@ describe("kinematics", () => {
     expect(firm.index[1]).toBeGreaterThan(gentle.index[1]);
     const compliant = blendPose(contact, 1, 1, { index: 0.8 }, 0.5);
     expect(compliant.index[1]).toBeGreaterThan(firm.index[1]);
+  });
+
+  it("stands the thumb up when open and swings it into the grasp plane before contact", () => {
+    expect(thumbAbduction(0)).toBeCloseTo(THUMB_OPEN_ABDUCTION);
+    expect(thumbAbduction(0.4)).toBeLessThan(THUMB_OPEN_ABDUCTION);
+    expect(thumbAbduction(0.4)).toBeGreaterThan(0);
+    expect(thumbAbduction(0.75)).toBe(0);
+    expect(thumbAbduction(1)).toBe(0);
   });
 });

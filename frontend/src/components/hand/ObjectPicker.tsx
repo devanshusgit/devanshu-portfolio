@@ -1,7 +1,7 @@
 import { Box, Cylinder, GlassWater, Milk, Package, Volleyball } from "lucide-react";
 import type { ReactNode } from "react";
 import type { VirtualObject } from "@/api/types";
-import { MaterialSwatch, cx } from "@/components/ui";
+import { cx } from "@/components/ui";
 
 export const OBJECT_ICON: Record<string, ReactNode> = {
   glass: <GlassWater className="h-5 w-5" aria-hidden />,
@@ -17,13 +17,11 @@ export function ObjectPicker({
   value,
   onChange,
   disabled,
-  showMaterial = true,
 }: {
   objects: VirtualObject[];
   value: string;
   onChange: (id: string) => void;
   disabled?: boolean;
-  showMaterial?: boolean;
 }) {
   return (
     <div role="radiogroup" aria-label="Virtual object" className="grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -43,12 +41,6 @@ export function ObjectPicker({
         >
           <span className={value === o.id ? "text-accent" : "text-muted"}>{OBJECT_ICON[o.id]}</span>
           <span className="text-[12px] font-medium leading-tight">{o.name}</span>
-          {showMaterial && (
-            <span className="flex items-center gap-1 text-[10.5px] text-muted">
-              <MaterialSwatch material={o.default_material} className="h-2 w-2" />
-              {o.default_material}
-            </span>
-          )}
         </button>
       ))}
     </div>

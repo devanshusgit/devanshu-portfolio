@@ -48,10 +48,16 @@ function SessionBootstrap() {
   return null;
 }
 
-export default function App() {
+/** Applies theme / reduced-motion to <html>. Kept in its own leaf so a theme switch does not re-render every route. */
+function PrefsEffects() {
   usePrefsEffects();
+  return null;
+}
+
+export default function App() {
   return (
     <>
+      <PrefsEffects />
       <SessionBootstrap />
       <Suspense fallback={<LoadingBlock label="Loading NeuroGrip…" className="m-6 min-h-[60vh]" />}>
         <Routes>

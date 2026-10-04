@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronsLeft, ChevronsRight, Database, Download, FileWarning, Pause, Play, RotateCcw, StepBack, StepForward, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { api, errorMessage } from "@/api/client";
 import type { Dataset, RowView } from "@/api/types";
 import { BatchPanel } from "@/components/data/BatchPanel";
@@ -73,7 +74,8 @@ function DatasetSummary({ ds }: { ds: Dataset }) {
 export default function DataStudio() {
   const qc = useQueryClient();
   const catalog = useCatalog();
-  const prefs = usePrefs();
+  // Only the fields used here, so a theme switch does not re-render the 3D scene.
+  const prefs = usePrefs(useShallow((s) => ({ playback_speed: s.playback_speed, auto_save_history: s.auto_save_history, record_playback: s.record_playback })));
   const reduced = useReducedMotion();
   const [datasetId, setDatasetId] = useState<number | null>(null);
   const [offset, setOffset] = useState(0);
