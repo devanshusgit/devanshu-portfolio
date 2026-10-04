@@ -41,6 +41,8 @@ OOD_PENALTY = 5.0
 ATYPICAL_PENALTY = 8.0
 
 OBJECT_FRAGILITY_POINTS = 3.0
+# Below this the virtual actuator cannot hold any object against gravity/slip.
+MIN_SECURE_GRIP = 12.0
 
 THERMAL_HOT_C = 45.0
 THERMAL_COLD_C = 5.0
@@ -271,6 +273,11 @@ class GripEngine:
                     f"Grip limited to {structural_cap:.0f}% by the {obj.name.lower()}'s structural limit.",
                 )
             )
+        if grip < MIN_SECURE_GRIP:
+            explanation.append(
+                f"Minimum secure-hold floor: raised from {grip:.1f}% to {MIN_SECURE_GRIP:.0f}% to prevent slip."
+            )
+            grip = MIN_SECURE_GRIP
         grip = round(grip, 1)
 
         if uncertain:

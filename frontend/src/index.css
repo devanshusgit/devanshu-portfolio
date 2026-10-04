@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ------------------------------------------------------------------ tokens */
+:root {
+  color-scheme: light;
+  --bg: #eef2f7;
+  --bg-grid: rgba(15, 23, 42, 0.05);
+  --surface: #ffffff;
+  --surface-2: #f5f7fb;
+  --surface-3: #e9eef5;
+  --glass: rgba(255, 255, 255, 0.78);
+  --border: rgba(15, 23, 42, 0.1);
+  --border-strong: rgba(15, 23, 42, 0.18);
+  --text: #0b1220;
+  --text-2: #3d4a5c;
+  --muted: #677385;
+  --accent: #0891b2;
+  --accent-2: #6d28d9;
+  --accent-soft: rgba(8, 145, 178, 0.1);
+  --good: #0a7d0a;
+  --warn: #a15c00;
+  --bad: #c22f2f;
+  --good-soft: rgba(12, 163, 12, 0.12);
+  --warn-soft: rgba(250, 178, 25, 0.18);
+  --bad-soft: rgba(208, 59, 59, 0.12);
+  --chart-grid: #e1e5ec;
+  --chart-axis: #8a93a2;
+  --m-glass: #2a78d6;
+  --m-wood: #eb6834;
+  --m-plastic: #1baf7a;
+  --m-rubber: #eda100;
+  --m-fabric: #e87ba4;
+  --m-steel: #4a3aa7;
+  --m-uncertain: #7c8594;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px -12px rgba(15, 23, 42, 0.18);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #060a12;
+  --bg-grid: rgba(148, 197, 255, 0.045);
+  --surface: #0d1422;
+  --surface-2: #111a2b;
+  --surface-3: #172237;
+  --glass: rgba(13, 20, 34, 0.72);
+  --border: rgba(148, 180, 230, 0.12);
+  --border-strong: rgba(148, 180, 230, 0.22);
+  --text: #eaf1fb;
+  --text-2: #b4c0d3;
+  --muted: #7d8aa0;
+  --accent: #22d3ee;
+  --accent-2: #a78bfa;
+  --accent-soft: rgba(34, 211, 238, 0.12);
+  --good: #3fd17a;
+  --warn: #fab219;
+  --bad: #f06a6a;
+  --good-soft: rgba(12, 163, 12, 0.16);
+  --warn-soft: rgba(250, 178, 25, 0.14);
+  --bad-soft: rgba(208, 59, 59, 0.18);
+  --chart-grid: #1c2638;
+  --chart-axis: #7d8aa0;
+  --m-glass: #3987e5;
+  --m-wood: #d95926;
+  --m-plastic: #199e70;
+  --m-rubber: #c98500;
+  --m-fabric: #d55181;
+  --m-steel: #9085e9;
+  --m-uncertain: #8a93a2;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px -16px rgba(0, 0, 0, 0.7);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-glass: var(--glass);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-ink-2: var(--text-2);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-good-soft: var(--good-soft);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad-soft: var(--bad-soft);
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --shadow-panel: var(--shadow);
+}
+
+/* -------------------------------------------------------------------- base */
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.bg-lab-grid {
+  background-image:
+    linear-gradient(var(--bg-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thin, unobtrusive scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+@keyframes ng-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.animate-ng-pulse {
+  animation: ng-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ng-flow {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(400%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+:root[data-reduced-motion="true"] *,
+:root[data-reduced-motion="true"] *::before,
+:root[data-reduced-motion="true"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}

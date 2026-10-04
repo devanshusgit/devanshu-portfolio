@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from app.domain.materials import MATERIAL_SPECS, MATERIALS
-from app.grip.engine import CONSERVATIVE_GRIP_CAP, GripEngine
+from app.grip.engine import CONSERVATIVE_GRIP_CAP, MIN_SECURE_GRIP, GripEngine
 from app.sensors.physics import generate_readings
 
 
@@ -37,7 +37,8 @@ def test_grip_formula_components_add_up(engine, registry):
         d, _ = engine.decide(certain(m), typical(registry, m), object_id="cube")
         assert d.base_grip == MATERIAL_SPECS[m].base_grip
         assert d.raw_grip == pytest.approx(d.base_grip + d.sensor_adjustment - d.fragility_protection + d.confidence_adjustment, abs=0.02)
-        assert d.grip_percent == pytest.approx(min(max(d.raw_grip, 0), 100, d.structural_limit), abs=0.06)
+        expected = max(min(max(d.raw_grip, 0), 100, d.structural_limit), MIN_SECURE_GRIP)
+        assert d.grip_percent == pytest.approx(expected, abs=0.06)
         assert 0 <= d.grip_percent <= 100
 
 
@@ -129,6 +130,6 @@ def test_clamped_to_valid_range_on_random_inputs(engine):
         probs = dict(zip(MATERIALS, p))
         feats = {k: float(v[0]) for k, v in generate_readings([str(rng.choice(MATERIALS))], rng).items() if not k.startswith(("latent", "env"))}
         d, cmd = engine.decide(probs, feats, object_id=str(rng.choice(["glass", "bottle", "cube", "ball", "container", "steel"])))
-        assert 0.0 <= d.grip_percent <= 100.0
+        assert MIN_SECURE_GRIP <= d.grip_percent <= 100.0
         assert 0.0 < cmd.closure_speed <= 1.0
         assert all(0.0 <= v <= 1.0 for v in cmd.finger_force.values())

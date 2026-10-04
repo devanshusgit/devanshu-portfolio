@@ -102,7 +102,7 @@ OBJECTS: dict[str, VirtualObject] = {
         name="Cube",
         shape="box",
         default_material="Wood",
-        dimensions={"size": 0.62, "height": 0.62},
+        dimensions={"size": 0.7, "height": 0.7},
         description="Solid cube grasped across two parallel faces.",
         profile=GraspProfile(
             id="power_side",
@@ -132,7 +132,7 @@ OBJECTS: dict[str, VirtualObject] = {
             finger_participation=_p(thumb=1.0, index=1.0, middle=1.0, ring=0.95, little=0.85),
             closure_speed_factor=0.9,
             finger_spread=0.16,
-            palm_height_fraction=0.5,
+            palm_height_fraction=0.42,
             lift_height=0.5,
             object_fragility=0.0,
         ),
