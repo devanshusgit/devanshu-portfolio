@@ -1,0 +1,275 @@
+{
+  "description": "NeuroGrip example - SIMULATED tactile readings",
+  "data": [
+    {
+      "row_id": 1,
+      "pressure": 193.38,
+      "temperature": 29.18,
+      "vibration": 655.7,
+      "conductivity": 6.762e-13,
+      "contact_duration": 0.308,
+      "material": "Plastic"
+    },
+    {
+      "row_id": 2,
+      "pressure": 40.96,
+      "temperature": 30.09,
+      "vibration": 13.7,
+      "conductivity": 0.003659,
+      "contact_duration": 0.874,
+      "material": "Rubber"
+    },
+    {
+      "row_id": 3,
+      "pressure": 32.77,
+      "temperature": 32.29,
+      "vibration": 9.6,
+      "conductivity": 3.222e-12,
+      "contact_duration": 1.991,
+      "material": "Fabric"
+    },
+    {
+      "row_id": 4,
+      "pressure": 181.58,
+      "temperature": 28.82,
+      "vibration": 2661.0,
+      "conductivity": 5.233e-13,
+      "contact_duration": 0.194,
+      "material": "Glass"
+    },
+    {
+      "row_id": 5,
+      "pressure": 49.99,
+      "temperature": 30.21,
+      "vibration": 28.8,
+      "conductivity": 0.001743,
+      "contact_duration": 0.775,
+      "material": "Rubber"
+    },
+    {
+      "row_id": 6,
+      "pressure": 197.19,
+      "temperature": 31.45,
+      "vibration": 1180.4,
+      "conductivity": 1.765e-12,
+      "contact_duration": 0.256,
+      "material": "Wood"
+    },
+    {
+      "row_id": 7,
+      "pressure": 241.86,
+      "temperature": 27.6,
+      "vibration": 2092.8,
+      "conductivity": 2.201e-12,
+      "contact_duration": 0.15,
+      "material": "Glass"
+    },
+    {
+      "row_id": 8,
+      "pressure": 216.16,
+      "temperature": 28.64,
+      "vibration": 3225.2,
+      "conductivity": 4.473e-13,
+      "contact_duration": 0.155,
+      "material": "Glass"
+    },
+    {
+      "row_id": 9,
+      "pressure": 164.99,
+      "temperature": 31.58,
+      "vibration": 2502.2,
+      "conductivity": 8.845e-13,
+      "contact_duration": 0.289,
+      "material": "Wood"
+    },
+    {
+      "row_id": 10,
+      "pressure": 151.73,
+      "temperature": 29.15,
+      "vibration": 545.5,
+      "conductivity": 2.118e-12,
+      "contact_duration": 0.323,
+      "material": "Plastic"
+    },
+    {
+      "row_id": 11,
+      "pressure": 32.6,
+      "temperature": 32.81,
+      "vibration": 10.0,
+      "conductivity": 9.5e-11,
+      "contact_duration": 1.995,
+      "material": "Fabric"
+    },
+    {
+      "row_id": 12,
+      "pressure": 60.82,
+      "temperature": 30.22,
+      "vibration": 100.7,
+      "conductivity": 0.00234,
+      "contact_duration": 0.531,
+      "material": "Rubber"
+    },
+    {
+      "row_id": 13,
+      "pressure": 257.22,
+      "temperature": 29.23,
+      "vibration": 748.0,
+      "conductivity": 7.053e-13,
+      "contact_duration": 0.296,
+      "material": "Plastic"
+    },
+    {
+      "row_id": 14,
+      "pressure": 223.72,
+      "temperature": 30.25,
+      "vibration": 2432.5,
+      "conductivity": 4.749e-10,
+      "contact_duration": 0.214,
+      "material": "Wood"
+    },
+    {
+      "row_id": 15,
+      "pressure": 70.22,
+      "temperature": 29.15,
+      "vibration": 34.5,
+      "conductivity": 4.732e-12,
+      "contact_duration": 0.881,
+      "material": "Rubber"
+    },
+    {
+      "row_id": 16,
+      "pressure": 35.09,
+      "temperature": 32.46,
+      "vibration": 37.1,
+      "conductivity": 2.173e-12,
+      "contact_duration": 1.424,
+      "material": "Fabric"
+    },
+    {
+      "row_id": 17,
+      "pressure": 168.56,
+      "temperature": 29.83,
+      "vibration": 384.3,
+      "conductivity": 3.172e-13,
+      "contact_duration": 0.442,
+      "material": "Plastic"
+    },
+    {
+      "row_id": 18,
+      "pressure": 221.86,
+      "temperature": 30.02,
+      "vibration": 3328.8,
+      "conductivity": 1.333e-12,
+      "contact_duration": 0.17,
+      "material": "Glass"
+    },
+    {
+      "row_id": 19,
+      "pressure": 219.5,
+      "temperature": 31.41,
+      "vibration": 1229.9,
+      "conductivity": 6.546e-09,
+      "contact_duration": 0.271,
+      "material": "Wood"
+    },
+    {
+      "row_id": 20,
+      "pressure": 41.79,
+      "temperature": 31.89,
+      "vibration": 36.3,
+      "conductivity": 4.655e-12,
+      "contact_duration": 0.628,
+      "material": "Fabric"
+    },
+    {
+      "row_id": 21,
+      "pressure": 184.22,
+      "temperature": 29.93,
+      "vibration": 2246.7,
+      "conductivity": 3.334e-11,
+      "contact_duration": 0.226,
+      "material": "Wood"
+    },
+    {
+      "row_id": 22,
+      "pressure": 227.25,
+      "temperature": 30.65,
+      "vibration": 579.3,
+      "conductivity": 7.59e-13,
+      "contact_duration": 0.422,
+      "material": "Plastic"
+    },
+    {
+      "row_id": 23,
+      "pressure": 266.96,
+      "temperature": 24.75,
+      "vibration": 2027.0,
+      "conductivity": 942400.0,
+      "contact_duration": 0.144,
+      "material": "Steel"
+    },
+    {
+      "row_id": 24,
+      "pressure": 48.27,
+      "temperature": 31.98,
+      "vibration": 29.8,
+      "conductivity": 8.408e-11,
+      "contact_duration": 1.631,
+      "material": "Fabric"
+    },
+    {
+      "row_id": 25,
+      "pressure": 259.98,
+      "temperature": 29.01,
+      "vibration": 3315.1,
+      "conductivity": 1.331e-12,
+      "contact_duration": 0.154,
+      "material": "Glass"
+    },
+    {
+      "row_id": 26,
+      "pressure": 286.73,
+      "temperature": 22.09,
+      "vibration": 2250.0,
+      "conductivity": 1142000.0,
+      "contact_duration": 0.141,
+      "material": "Steel"
+    },
+    {
+      "row_id": 27,
+      "pressure": 78.55,
+      "temperature": 30.11,
+      "vibration": 75.7,
+      "conductivity": 1.287e-12,
+      "contact_duration": 0.548,
+      "material": "Rubber"
+    },
+    {
+      "row_id": 28,
+      "pressure": 234.69,
+      "temperature": 26.18,
+      "vibration": 2372.2,
+      "conductivity": 1960000.0,
+      "contact_duration": 0.134,
+      "material": "Steel"
+    },
+    {
+      "row_id": 29,
+      "pressure": 248.36,
+      "temperature": 26.81,
+      "vibration": 2062.9,
+      "conductivity": 2571000.0,
+      "contact_duration": 0.135,
+      "material": "Steel"
+    },
+    {
+      "row_id": 30,
+      "pressure": 191.05,
+      "temperature": 24.91,
+      "vibration": 2574.4,
+      "conductivity": 1074000.0,
+      "contact_duration": 0.153,
+      "material": "Steel"
+    }
+  ]
+}

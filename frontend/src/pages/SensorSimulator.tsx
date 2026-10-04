@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Activity, Cpu, PlugZap, Radio, Sparkles, Square, Unplug, Wifi } from "lucide-react";
 import { useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -59,7 +59,17 @@ export default function SensorSimulator() {
     mutationFn: () =>
       api.simulate({ object_id: objectId, material: material || null, contact_quality: contactQuality, noise_level: noise, persist: false, source_detail: "sensor_simulator" }),
   });
-  const stream = useMutation({ mutationFn: (start: boolean) => (start ? api.streamStart(Number(rate)) : api.streamStop()) });
+  // Without an open WebSocket, still reflect the server's real live state via REST.
+  const restStatus = useQuery({
+    queryKey: ["live-status"],
+    queryFn: api.liveStatus,
+    refetchInterval: 2000,
+    enabled: live.transport === "disconnected",
+  });
+  const stream = useMutation({
+    mutationFn: (start: boolean) => (start ? api.streamStart(Number(rate)) : api.streamStop()),
+    onSettled: () => restStatus.refetch(),
+  });
 
   const series = useMemo(() => {
     const recent = live.samples.slice(-120);
@@ -75,7 +85,7 @@ export default function SensorSimulator() {
     ) as Record<FeatureName, { seq: number; v: number | null }[]>;
   }, [live.samples]);
   const feed = live.samples.slice(-14).reverse();
-  const st = live.status;
+  const st = live.transport === "disconnected" ? (restStatus.data ?? live.status) : (live.status ?? restStatus.data);
   const colors = [c["--m-glass"], c["--m-wood"], c["--m-plastic"], c["--m-steel"], c["--m-fabric"]];
 
   return (

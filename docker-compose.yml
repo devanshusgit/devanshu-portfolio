@@ -1,0 +1,58 @@
+# NeuroGrip: PostgreSQL + FastAPI backend + nginx-served React frontend.
+#   cp .env.example .env   # then set real secrets
+#   docker compose up --build
+# Open http://localhost:8080
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-neurogrip}
+      POSTGRES_USER: ${POSTGRES_USER:-neurogrip}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-neurogrip}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-neurogrip}
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+      SENSOR_DEVICE_KEY: ${SENSOR_DEVICE_KEY:?set SENSOR_DEVICE_KEY in .env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@neurogrip.dev}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      SEED_DEMO_USER: ${SEED_DEMO_USER:-true}
+      DEMO_EMAIL: ${DEMO_EMAIL:-demo@neurogrip.dev}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo-password-2026}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-5}
+    volumes:
+      - model_artifacts:/app/artifacts
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"   # optional: direct API / device access
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ""
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+
+volumes:
+  pgdata:
+  model_artifacts:
