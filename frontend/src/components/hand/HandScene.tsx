@@ -31,6 +31,11 @@ const HAND_QUAT = new THREE.Quaternion().setFromRotationMatrix(
 
 const RETRACT_X = 1.8;
 
+// Reused every frame (no per-frame allocations in the render loop).
+const SENSOR_IDLE = new THREE.Color("#22d3ee");
+const SENSOR_FORCE = new THREE.Color("#fbbf24");
+const sensorColor = new THREE.Color();
+
 function Rig({ object, appearance, motion, command, compliance, state, showLabels }: HandSceneProps) {
   const rig = useRef<HandRig>(createRig());
   const handGroup = useRef<THREE.Group>(null);
@@ -81,7 +86,7 @@ function Rig({ object, appearance, motion, command, compliance, state, showLabel
     const force = squeeze * (cmd?.sensor_intensity ?? 0.5);
     const armed = st === "SENSING" ? 0.5 + 0.5 * Math.sin(t * 9) : 0;
     const intensity = 0.15 + sensors * (0.9 + 2.6 * force) + armed * 1.2;
-    const color = new THREE.Color("#22d3ee").lerp(new THREE.Color("#fbbf24"), Math.min(1, force * 1.1));
+    const color = sensorColor.copy(SENSOR_IDLE).lerp(SENSOR_FORCE, Math.min(1, force * 1.1));
     rig.current.sensors.forEach((m) => {
       const mat = m.material as THREE.MeshStandardMaterial;
       mat.emissiveIntensity = intensity;
