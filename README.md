@@ -136,6 +136,14 @@ Development accounts are seeded automatically:
 To use PostgreSQL locally set `DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/neurogrip`.
 Tables are created on startup.
 
+### Option C: Hosted (Render, free plan)
+
+`render.yaml` describes one Docker web service built from `Dockerfile.vercel` (a single image
+that serves the API and the built frontend on one origin, listening on `$PORT`). In the Render
+dashboard choose **New → Blueprint**, select this repository, then enter `DATABASE_URL`
+(e.g. a Supabase pooler URL), `SECRET_KEY`, `SENSOR_DEVICE_KEY` and `ADMIN_PASSWORD` when asked.
+Free instances sleep after ~15 minutes without traffic; the first request then takes about a minute.
+
 ## Environment variables
 
 All settings are in `backend/app/core/config.py`; see [`.env.example`](.env.example).

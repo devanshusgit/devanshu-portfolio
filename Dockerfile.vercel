@@ -1,4 +1,4 @@
-# Single-container image for Vercel (and any container host that sets $PORT):
+# Single-container image for Render, Vercel or any container host that sets $PORT:
 # the FastAPI backend also serves the built React frontend on one origin,
 # so /api, /ws and the SPA share a domain (no CORS, WebSockets on the same host).
 

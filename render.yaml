@@ -1,0 +1,25 @@
+# Render Blueprint: one free Docker web service (FastAPI API + built React app on one origin).
+# Render dashboard -> New -> Blueprint -> pick this repo and branch. Secrets marked
+# `sync: false` are asked for once in the dashboard and never stored in the repo.
+services:
+  - type: web
+    name: neurogrip
+    runtime: docker
+    plan: free
+    region: virginia # same AWS region as the Supabase pooler (us-east-1)
+    branch: claude/neurogrip-prosthetic-platform-m1w5az
+    dockerfilePath: ./Dockerfile.vercel
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: SENSOR_DEVICE_KEY
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
