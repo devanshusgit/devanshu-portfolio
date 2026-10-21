@@ -2,6 +2,13 @@
 
 **AI-powered virtual prosthetic hand: intelligence and simulation platform.**
 
+**Live demo: [neurogrip.vercel.app](https://neurogrip.vercel.app)** ·
+[API docs](https://neurogrip.vercel.app/docs) ·
+[Health check](https://neurogrip.vercel.app/api/health)
+
+Hosted on Vercel (container runtime) with a Supabase PostgreSQL database. Sign in with the demo
+account `demo@neurogrip.dev` or register a new one.
+
 NeuroGrip demonstrates the *intelligence layer* of a robotic prosthetic hand:
 
 ```
@@ -23,8 +30,8 @@ advances on real events. Every result is stored with its exact input.
 
 ## Contents
 
-- [Features](#features) · [Architecture](#architecture) · [Tech stack](#tech-stack)
-- [Quick start](#quick-start) (Docker or local) · [Environment variables](#environment-variables)
+- [Features](#features) · [Screenshots](#screenshots) · [Architecture](#architecture) · [Tech stack](#tech-stack)
+- [Quick start](#quick-start) (Docker, local, Vercel or Render) · [Environment variables](#environment-variables)
 - [Machine learning](#machine-learning) · [Grip engine](#grip-engine)
 - [External data (CSV/JSON)](#external-data-csvjson) · [Live sensors & hardware](#live-sensors--future-hardware)
 - [API overview](#api-overview) · [Testing](#testing) · [Examiner demo script](#examiner-demo-script)
@@ -41,6 +48,22 @@ advances on real events. Every result is stored with its exact input.
 | **Data sources** | Simulated provider, uploaded CSV/JSON (single row, playback, batch), live stream (WebSocket + REST fallback). All use **one** prediction pipeline. |
 | **External Data Studio** | Drag-and-drop upload, alias detection, unit conversion, manual mapping, validation (missing/invalid/out-of-distribution), preview, row selection, **SIMULATE THIS SAMPLE**, playback (first/prev/play/pause/next/last/reset, 0.5–5×), batch processing with real evaluation metrics, CSV/JSON export. |
 | **Platform** | JWT auth (bcrypt), USER/ADMIN roles, history with filters/export, analytics, ML model lab, experiments (live sliders + sensitivity sweeps), settings, admin, dark/light themes, reduced-motion support. |
+| **Hosting** | One container image (`Dockerfile.vercel`) serves the API and the built frontend on one origin. Live on Vercel with Supabase PostgreSQL; also runs with Docker Compose or on Render. |
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Virtual Lab: glass held with a gentle grip](demo-screenshots/01_lab_glass_holding.png) | ![Virtual Lab: bottle being lifted](demo-screenshots/02_lab_bottle_lifting.png) |
+| Virtual Lab: glass held with a gentle grip | Virtual Lab: bottle lifted with a cylindrical grasp |
+| ![Uncertain prediction with conservative grip](demo-screenshots/03_lab_uncertain_conservative.png) | ![Data Studio: row 1 simulated](demo-screenshots/04_studio_row1_simulated.png) |
+| Degraded contact: "Uncertain" prediction, conservative grip | External Data Studio: uploaded row simulated |
+| ![Data Studio: messy column mapping](demo-screenshots/05_studio_messy_mapping.png) | ![Data Studio: batch evaluation](demo-screenshots/06_studio_batch_evaluation.png) |
+| Alias detection and unit conversion on a messy CSV | Batch processing with evaluation metrics |
+| ![Live sensor stream telemetry](demo-screenshots/07_live_stream_telemetry.png) | ![Prediction history](demo-screenshots/08_history.png) |
+| Live sensor stream with per-sample predictions | History of every result with its exact input |
+| ![Analytics](demo-screenshots/09_analytics.png) | ![ML model lab](demo-screenshots/10_ml_model.png) |
+| Analytics computed from history | ML Model lab: metrics, confusion matrix, retraining |
 
 ## Architecture
 
@@ -81,6 +104,13 @@ frontend/
   e2e/           Playwright acceptance tests
 hardware/        ESP32 reference sketch
 sample_data/     ready-to-upload example datasets
+demo-screenshots/  screenshots used in this README
+
+Dockerfile.vercel  single image: builds the frontend, installs the API, trains the model, serves both
+vercel.json        Vercel project config ("framework": "container")
+.vercelignore      keeps local artifacts, node_modules and screenshots out of Vercel uploads
+render.yaml        Render blueprint (alternative free host, same image)
+docker-compose.yml PostgreSQL + API + nginx web for self-hosting (uses backend/ and frontend/ Dockerfiles)
 ```
 
 **Canonical pipeline.** `PredictionPipeline.run_batch()` (`backend/app/services/pipeline.py`) is the only
@@ -92,8 +122,10 @@ logic; it renders the returned `PredictionResult` and animates its `SimulationCo
 Frontend: React 19, TypeScript, Vite 8, Tailwind CSS 4, React Router 7, TanStack Query, Zustand,
 Three.js + React Three Fiber + drei, Recharts, Framer Motion, Lucide.
 Backend: Python 3.11, FastAPI, Pydantic 2, SQLAlchemy 2, Uvicorn, PyJWT, bcrypt.
-ML: NumPy, pandas, scikit-learn, joblib. Database: PostgreSQL 16 (SQLite fallback).
-Testing: pytest, Vitest + Testing Library, Playwright. Deployment: Docker, docker compose, nginx.
+ML: NumPy, pandas, scikit-learn, joblib. Database: PostgreSQL (Supabase in production,
+PostgreSQL 16 in Docker Compose), SQLite fallback for local development.
+Testing: pytest, Vitest + Testing Library, Playwright.
+Deployment: Vercel container runtime (live), Docker + Docker Compose + nginx, Render blueprint.
 
 ## Quick start
 
@@ -136,7 +168,53 @@ Development accounts are seeded automatically:
 To use PostgreSQL locally set `DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/neurogrip`.
 Tables are created on startup.
 
-### Option C: Hosted (Render, free plan)
+### Option C: Vercel (live deployment)
+
+The live site at [neurogrip.vercel.app](https://neurogrip.vercel.app) runs on Vercel's container
+runtime. `vercel.json` sets `"framework": "container"`, so Vercel builds `Dockerfile.vercel` from
+the repository root:
+
+1. a Node 22 stage builds the React app (`VITE_API_URL` empty, so the frontend calls the same origin);
+2. a Python 3.11 stage installs the API, trains the model at build time (seed 42) and copies in
+   the built frontend (`FRONTEND_DIST=/app/static`);
+3. Uvicorn serves `/api`, `/ws` and the single-page app on `$PORT` with one worker.
+
+To deploy your own copy:
+
+1. Create a Vercel project from this repository and branch. The framework preset is
+   **Container** (already set by `vercel.json`).
+2. Add these environment variables for **Production**:
+   `ENVIRONMENT=production`, `DATABASE_URL`, `SECRET_KEY` (≥ 32 random characters),
+   `SENSOR_DEVICE_KEY`, `ADMIN_PASSWORD`.
+3. Deploy, then open `https://<your-project>.vercel.app/api/health`. A healthy deployment returns
+   `"status": "ok"` with `"database": {"ok": true, "backend": "postgresql"}` and a ready model.
+
+**Database (Supabase).** Use the **Session pooler** connection string from Supabase → Connect
+(port 5432), with the `postgresql+psycopg://` prefix and `?sslmode=require`:
+
+```
+postgresql+psycopg://<db-user>.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require
+```
+
+- Tables are created on first start. The live database uses a dedicated `neurogrip_app` role
+  whose `search_path` is a `neurogrip` schema, so the app's tables stay out of `public`.
+- Supabase pooler hosts are `aws-0-…` or `aws-1-…` depending on the project. If the host in
+  `DATABASE_URL` rejects the project ("tenant not found"), the app tries the other hosts
+  automatically (`resolve_supabase_pooler` in `backend/app/db/session.py`). Copying the exact
+  string from Supabase avoids that extra failed attempt on every cold start.
+- `Dockerfile.vercel` keeps the connection pool small (`DB_POOL_SIZE=4`, `DB_MAX_OVERFLOW=4`)
+  so several instances fit within the pooler's limits.
+
+**Hosted behaviour to be aware of.**
+
+- Vercel starts and stops container instances on demand, so the first request after a quiet
+  period can take a few seconds while the app connects to the database and loads the model.
+- Each instance has its own memory and disk. The live-sensor hub and models retrained from the
+  UI are not shared between instances and are lost when an instance stops; the model trained at
+  build time is always available. Training runs and all history are stored in PostgreSQL.
+- If WebSockets are unavailable, the UI falls back to REST polling for live sensors automatically.
+
+### Option D: Render (alternative free host)
 
 `render.yaml` describes one Docker web service built from `Dockerfile.vercel` (a single image
 that serves the API and the built frontend on one origin, listening on `$PORT`). In the Render
@@ -156,13 +234,19 @@ All settings are in `backend/app/core/config.py`; see [`.env.example`](.env.exam
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `720` | JWT lifetime |
 | `SENSOR_DEVICE_KEY` | dev placeholder | `X-Device-Key` for hardware ingestion |
 | `CORS_ORIGINS` | localhost dev origins | comma-separated allowed browser origins |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | see above | bootstrap administrator |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | see above | bootstrap administrator (only used when that account does not exist yet) |
 | `SEED_DEMO_USER`, `DEMO_EMAIL`, `DEMO_PASSWORD` | `true`, … | examiner account |
 | `MODEL_DIR` | `backend/artifacts` | persisted model + metadata |
 | `DATASET_SAMPLES`, `DATASET_SEED`, `TEST_SIZE` | `4800`, `42`, `0.2` | training defaults |
 | `MAX_UPLOAD_MB`, `MAX_UPLOAD_ROWS` | `5`, `20000` | upload limits |
 | `SIMULATED_STREAM_RATE_HZ` | `4` | simulated live stream default |
+| `TRAIN_ON_STARTUP_IF_MISSING` | `true` | train a model at startup if no artifact exists |
+| `FRONTEND_DIST` | unset (`/app/static` in `Dockerfile.vercel`) | when set, the API also serves the built frontend |
+| `DB_POOL_SIZE`, `DB_MAX_OVERFLOW` | `10`, `20` (`4`, `4` in `Dockerfile.vercel`) | SQLAlchemy pool; keep small for managed poolers |
 | `VITE_API_URL` (frontend build) | empty | API origin if not served same-origin |
+
+Hosted deployments (Vercel, Render) need only `ENVIRONMENT`, `DATABASE_URL`, `SECRET_KEY`,
+`SENSOR_DEVICE_KEY` and `ADMIN_PASSWORD`; the image sets the rest. Never commit real values.
 
 ## Machine learning
 
@@ -287,7 +371,8 @@ Only the provider changes when real hardware arrives; the ML, grip and 3D layers
 
 ## API overview
 
-Interactive docs: `http://localhost:8000/docs`.
+Interactive docs: [neurogrip.vercel.app/docs](https://neurogrip.vercel.app/docs) (live) or
+`http://localhost:8000/docs` (local).
 
 | Area | Endpoints |
 |---|---|
@@ -329,7 +414,8 @@ select row 1 → SIMULATE THIS SAMPLE → full hand state sequence → history.
 
 ## Examiner demo script
 
-1. Sign in as `demo@neurogrip.dev` (button "Fill demo credentials").
+1. Open [neurogrip.vercel.app](https://neurogrip.vercel.app) (or your local instance) and sign in
+   as `demo@neurogrip.dev` (button "Fill demo credentials").
 2. **Virtual Lab → "Demo 1: Glass".** Watch OPEN → … → RELEASING. Material, confidence (actual
    `predict_proba`), grip decomposition and safety appear only after the backend answers.
    Then **"Demo 2: Bottle"** (tall cylindrical grasp).
@@ -363,4 +449,6 @@ select row 1 → SIMULATE THIS SAMPLE → full hand state sequence → history.
   mechanical stops) independent of the software.
 - Clinical use would require extensive validation and regulatory compliance. No medical claims are made.
 - The live-sensor hub is in-process: run the API with a single worker (as the Dockerfile does).
+  On hosts that run several instances (such as Vercel), live streams and UI-retrained models are
+  per instance and not persistent.
 - Database schema is created with `create_all`; a production roll-out should add Alembic migrations.
