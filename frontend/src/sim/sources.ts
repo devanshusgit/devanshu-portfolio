@@ -1,5 +1,5 @@
 import { api, type SimulateParams } from "@/api/client";
-import type { Features, LiveSample, Material, PhoneTap, RowView } from "@/api/types";
+import type { Features, LiveSample, Material, RowView } from "@/api/types";
 import { latestClassified, useLive } from "@/lib/live";
 import type { AcquiredSample, GraspSource } from "./useGraspRun";
 
@@ -92,28 +92,5 @@ export function liveSource(p: { objectId: string; persist: boolean }): GraspSour
       };
     },
     analyze: () => api.predictLive(seq, { object_id: p.objectId, persist: p.persist }),
-  };
-}
-
-/** PHONE: one tap measured by the phone's microphone (real measurement) -> /api/predict. */
-export function phoneSource(p: { tap: PhoneTap; objectId: string; persist: boolean }): GraspSource {
-  const { tap } = p;
-  return {
-    kind: "LIVE",
-    acquire: async () => ({
-      features: tap.features,
-      sourceLabel: `PHONE TAP #${tap.id} · ${tap.device} · ${tap.measurements.dominant_hz} Hz`,
-      groundTruth: null,
-      simulated: false,
-      meta: { phone_tap_id: tap.id, ...tap.measurements },
-    }),
-    analyze: (s: AcquiredSample) =>
-      api.predict({
-        features: s.features,
-        data_source: "LIVE",
-        source_detail: "phone_sensor",
-        object_id: p.objectId,
-        persist: p.persist,
-      }),
   };
 }

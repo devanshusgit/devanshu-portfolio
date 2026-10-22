@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Camera, Database, Play, Radio, RotateCcw, SlidersHorizontal, Smartphone, Sparkles } from "lucide-react";
+import { Camera, Database, Play, Radio, RotateCcw, SlidersHorizontal, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
@@ -14,13 +14,12 @@ import { useCatalog } from "@/lib/catalog";
 import { FEATURE_ORDER, formatFeature, MATERIAL_ORDER } from "@/lib/format";
 import { latestClassified, useLive } from "@/lib/live";
 import { usePrefs, useReducedMotion } from "@/lib/prefs";
-import { usePhoneFeed } from "@/lib/phoneFeed";
-import { liveSource, phoneSource, simulatedSource, uploadedRowSource } from "@/sim/sources";
+import { liveSource, simulatedSource, uploadedRowSource } from "@/sim/sources";
 import { useGraspRun } from "@/sim/useGraspRun";
 
 const SPEEDS = [0.5, 1, 2, 5];
 
-type LabSource = DataSource | "PHONE" | "WEBCAM";
+type LabSource = DataSource | "WEBCAM";
 
 /** Webcam mode: fingers touch the object at this much hand closure; closing further asks for grip force. */
 const CONTACT_AT = 0.4;
@@ -115,39 +114,6 @@ export default function Lab() {
   const camLimited = camView.closure !== null && camView.intent > camAllowed + 0.5;
   const camState: HandState = !camResult || camView.closure === null ? "IDLE" : camView.closure < CONTACT_AT ? "OPEN" : camLimited || camView.applied >= camAllowed - 0.5 ? "HOLDING" : "GRIPPING";
 
-  // PHONE: real taps measured by a phone's microphone, relayed through the database.
-  const phone = usePhoneFeed();
-  const [autoGrasp, setAutoGrasp] = useState(true);
-  const [autoObject, setAutoObject] = useState(true);
-  const lastHandled = useRef<number | null>(null);
-  const latestTap = phone.taps.at(-1) ?? null;
-  useEffect(() => {
-    if (source !== "PHONE") return;
-    lastHandled.current = null;
-    phone.start();
-    return () => phone.stop();
-  }, [source]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const graspTap = (tap: NonNullable<typeof latestTap>) => {
-    lastHandled.current = tap.id;
-    let obj = objectId;
-    const predicted = tap.prediction?.material;
-    if (autoObject && predicted && catalog.defaultObjectForMaterial[predicted]) {
-      obj = catalog.defaultObjectForMaterial[predicted];
-      setObjectId(obj);
-    }
-    run.run(phoneSource({ tap, objectId: obj, persist }));
-  };
-
-  useEffect(() => {
-    if (source !== "PHONE" || !latestTap) return;
-    // Taps that were already there when PHONE mode opened are history, not new input.
-    if (lastHandled.current === null) {
-      lastHandled.current = latestTap.id;
-      return;
-    }
-    if (autoGrasp && !busy && latestTap.id > lastHandled.current) graspTap(latestTap);
-  }, [source, latestTap?.id, busy, autoGrasp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const start = (overrideObject?: string) => {
     const obj = overrideObject ?? objectId;
@@ -168,8 +134,6 @@ export default function Lab() {
       run.run(uploadedRowSource({ datasetId: dataset.id, datasetName: dataset.name, row, objectId: obj, persist, sourceDetail: "virtual_lab" }));
     } else if (source === "LIVE") {
       run.run(liveSource({ objectId: obj, persist }));
-    } else if (source === "PHONE" && latestTap) {
-      graspTap(latestTap);
     }
   };
 
@@ -203,7 +167,6 @@ export default function Lab() {
             { value: "SIMULATED", label: "SIMULATED", icon: <Sparkles className="h-3.5 w-3.5" /> },
             { value: "UPLOADED", label: "UPLOAD DATA", icon: <Database className="h-3.5 w-3.5" /> },
             { value: "LIVE", label: "LIVE SENSOR", icon: <Radio className="h-3.5 w-3.5" /> },
-            { value: "PHONE", label: "PHONE SENSOR", icon: <Smartphone className="h-3.5 w-3.5" /> },
             { value: "WEBCAM", label: "WEBCAM CONTROL", icon: <Camera className="h-3.5 w-3.5" /> },
           ]}
         />
@@ -345,67 +308,17 @@ export default function Lab() {
           </div>
         )}
 
-        {source === "PHONE" && (
-          <div className="space-y-3" data-testid="phone-panel">
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <Badge tone={phone.device?.online ? "good" : "warn"} dot>
-                {phone.device?.online ? `PHONE CONNECTED · ${phone.device.device}` : "PHONE NOT CONNECTED"}
-              </Badge>
-              <Badge tone="accent">REAL MEASUREMENT</Badge>
-              {phone.pollMs !== null && <span className="font-mono text-xs text-muted">poll {phone.pollMs.toFixed(0)} ms</span>}
-              {phone.device?.last_seen_s != null && <span className="font-mono text-xs text-muted">last seen {phone.device.last_seen_s.toFixed(1)} s ago</span>}
-            </div>
-            {phone.device?.online && (
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs text-muted">
-                  <span>Phone microphone level (live)</span>
-                  <span className="font-mono">{((phone.device.live.level ?? 0) * 100).toFixed(0)}%</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-surface-2">
-                  <div className="h-full bg-accent transition-[width] duration-300" style={{ width: `${Math.min(100, (phone.device.live.level ?? 0) * 100)}%` }} />
-                </div>
-              </div>
-            )}
-            {!phone.device?.online && (
-              <Notice tone="warn">
-                On your phone open <span className="font-mono font-medium">{window.location.origin}/phone</span>, sign in with this same account and tap{" "}
-                <span className="font-medium">START SENSOR</span>. Then tap an object next to the phone.
-              </Notice>
-            )}
-            {phone.error && <Notice tone="bad">{phone.error}</Notice>}
-            {latestTap && (
-              <div className="space-y-1">
-                {phone.taps.slice(-4).reverse().map((t) => (
-                  <div key={t.id} className="flex flex-wrap justify-between gap-2 rounded-xl border border-line bg-surface-2/50 px-3 py-1.5 font-mono text-[12px] text-ink-2">
-                    <span>
-                      #{t.id} · {t.prediction?.display_label ?? "?"} {((t.prediction?.confidence ?? 0) * 100).toFixed(0)}%
-                    </span>
-                    <span>
-                      {t.measurements.dominant_hz} Hz · decay {t.measurements.decay_ms} ms · rise {t.measurements.rise_ms} ms · {new Date(t.created_at).toLocaleTimeString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="grid gap-2 sm:grid-cols-3">
-              <Toggle checked={autoGrasp} onChange={setAutoGrasp} label="Grasp on every tap" />
-              <Toggle checked={autoObject} onChange={setAutoObject} label="Pick object from prediction" />
-              <Toggle checked={persist} onChange={setPersist} label="Save to history" />
-            </div>
-          </div>
-        )}
-
         <div className={source === "WEBCAM" ? "hidden" : "flex flex-wrap items-center gap-2 border-t border-line pt-4"}>
           <Button
             variant="primary"
             size="lg"
             onClick={() => start()}
             loading={busy}
-            disabled={busy || (source === "UPLOADED" && (!row || row.status === "invalid")) || (source === "PHONE" && !latestTap)}
+            disabled={busy || (source === "UPLOADED" && (!row || row.status === "invalid"))}
             icon={<Play className="h-4 w-4" />}
             data-testid="run-grasp"
           >
-            {source === "UPLOADED" ? "SIMULATE THIS SAMPLE" : source === "LIVE" ? "GRASP WITH LIVE SAMPLE" : source === "PHONE" ? "GRASP WITH LAST TAP" : "RUN GRASP SIMULATION"}
+            {source === "UPLOADED" ? "SIMULATE THIS SAMPLE" : source === "LIVE" ? "GRASP WITH LIVE SAMPLE" : "RUN GRASP SIMULATION"}
           </Button>
           {source === "SIMULATED" && (
             <>
@@ -431,7 +344,7 @@ export default function Lab() {
         </div>
         <Badge tone="neutral">{catalog.gripNote ? "grip = normalised %" : ""}</Badge>
       </div>
-      <SimulationWorkbench run={source === "WEBCAM" ? { ...run, result: camResult, state: camState, visits: [] } : run} object={object} knownMaterial={knownMaterial} source={source === "PHONE" || source === "WEBCAM" ? "LIVE" : source} controls={controls} sceneHeight="h-[420px] lg:h-[480px]" />
+      <SimulationWorkbench run={source === "WEBCAM" ? { ...run, result: camResult, state: camState, visits: [] } : run} object={object} knownMaterial={knownMaterial} source={source === "WEBCAM" ? "LIVE" : source} controls={controls} sceneHeight="h-[420px] lg:h-[480px]" />
     </div>
   );
 }

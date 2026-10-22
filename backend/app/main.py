@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 
 from app import __version__
-from app.api.routes import auth, datasets, history, model, phone, predict, sensors, settings, system
+from app.api.routes import auth, datasets, history, model, predict, sensors, settings, system
 from app.core.config import Settings, get_settings
 from app.core.context import AppContext
 from app.ingest.parser import UploadError
@@ -123,7 +123,7 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
             content={"detail": summary, "code": "invalid_request", "errors": errors},
         )
 
-    for module in (system, auth, predict, datasets, sensors, phone, history, model, settings):
+    for module in (system, auth, predict, datasets, sensors, history, model, settings):
         app.include_router(module.router)
     app.include_router(sensors.ws_router)
     if app_settings.frontend_dist:

@@ -33,7 +33,7 @@ advances on real events. Every result is stored with its exact input.
 - [Features](#features) · [Screenshots](#screenshots) · [Architecture](#architecture) · [Tech stack](#tech-stack)
 - [Quick start](#quick-start) (Docker, local, Vercel or Render) · [Environment variables](#environment-variables)
 - [Machine learning](#machine-learning) · [Grip engine](#grip-engine)
-- [External data (CSV/JSON)](#external-data-csvjson) · [Webcam control](#webcam-control-real-hand-input) · [Phone as a real sensor](#phone-as-a-real-sensor) · [Live sensors & hardware](#live-sensors--future-hardware)
+- [External data (CSV/JSON)](#external-data-csvjson) · [Webcam control](#webcam-control-real-hand-input) · [Live sensors & hardware](#live-sensors--future-hardware)
 - [API overview](#api-overview) · [Testing](#testing) · [Examiner demo script](#examiner-demo-script)
 - [Simulation vs real hardware](#simulation-vs-real-hardware) · [Limitations](#limitations)
 
@@ -45,7 +45,7 @@ advances on real events. Every result is stored with its exact input.
 | **State machine** | `IDLE → OPEN → APPROACHING → SENSING → CONTACT → ANALYZING → PREDICTED → GRIP_DECISION → GRIPPING → HOLDING → LIFTING → RELEASING → COMPLETED` (+ `ERROR`). `ANALYZING → PREDICTED` only happens when the backend answers. |
 | **ML** | Physics-inspired synthetic dataset (4 800 samples, seed 42), sklearn `Pipeline` (log10 conductivity → scaler → `RandomForestClassifier(100, depth 12, rs 42)`), held-out metrics, 5-fold CV, confusion matrix, confidence calibration, retraining from the UI. |
 | **Grip engine** | `base + sensor adjustment − fragility protection + confidence adjustment`, clamped 0–100, conservative mode for uncertain predictions, novelty check, object structural limits, secure-hold floor, safety warnings. |
-| **Data sources** | Simulated provider, uploaded CSV/JSON (single row, playback, batch), live stream (WebSocket + REST fallback), and a **phone used as a real tap sensor** (microphone). All use **one** prediction pipeline. |
+| **Data sources** | Simulated provider, uploaded CSV/JSON (single row, playback, batch), live stream (WebSocket + REST fallback), and **webcam hand control** (real user input). All use **one** prediction pipeline. |
 | **External Data Studio** | Drag-and-drop upload, alias detection, unit conversion, manual mapping, validation (missing/invalid/out-of-distribution), preview, row selection, **SIMULATE THIS SAMPLE**, playback (first/prev/play/pause/next/last/reset, 0.5–5×), batch processing with real evaluation metrics, CSV/JSON export. |
 | **Platform** | JWT auth (bcrypt), USER/ADMIN roles, history with filters/export, analytics, ML model lab, experiments (live sliders + sensitivity sweeps), settings, admin, dark/light themes, reduced-motion support. |
 | **Hosting** | One container image (`Dockerfile.vercel`) serves the API and the built frontend on one origin. Live on Vercel with Supabase PostgreSQL; also runs with Docker Compose or on Render. |
@@ -358,31 +358,6 @@ decides what is *safe*. The material and safe grip limit come from the normal AI
 selected object; the 3D hand follows the user's hand but never exceeds that limit, and the panel shows
 **LIMITED BY SAFETY** when the user asks for more (e.g. a full fist on a glass).
 
-
-Until the tactile hardware is ready, any smartphone can act as a **real, live sensor**.
-
-1. On the laptop open **Virtual Lab → PHONE SENSOR**.
-2. On the phone open [`/phone`](https://neurogrip.vercel.app/phone), sign in with the same account and tap
-   **START SENSOR** (allow the microphone).
-3. Tap an object (glass, steel spoon, wooden ruler, plastic box…) on the table next to the phone's
-   microphone. Within about a second the laptop shows the measured tap, the predicted material and the
-   hand grasping a matching object.
-
-What the phone measures for every tap (`frontend/src/lib/tapSensor.ts`, from raw microphone samples):
-
-| Model input | From the phone | Type |
-|---|---|---|
-| `vibration` (Hz) | dominant ring frequency (FFT): glass/steel ring high, wood and plastic lower, soft materials thud | measured |
-| `contact_duration` (s) | `0.1 + 6 / ring-decay-ms`: soft (viscoelastic) materials damp the ring quickly and settle slowly | derived from measurement |
-| `pressure` (kPa) | `260 − 40 × impact-rise-ms`: stiffer objects give a sharper impact (Hertzian contact) | derived from measurement |
-| `temperature` (°C) | how the object feels to the presenter: cold / cool / neutral / warm | manual |
-| `conductivity` (S/m) | "metal" switch | manual |
-
-Phones have no contact thermometer or electrodes, so those two inputs are entered by touch. Taps are
-classified by the same pipeline, stored in the `phone_taps` table and polled by the laptop
-(`GET /api/phone/feed`), so the relay works even when the host runs several instances. Grasps
-started from a phone tap are saved in History as `LIVE · phone_sensor`.
-
 ## Live sensors & future hardware
 
 ```
@@ -417,7 +392,6 @@ Interactive docs: [neurogrip.vercel.app/docs](https://neurogrip.vercel.app/docs)
 | Auth | `POST /api/auth/register`, `/api/auth/login`, `GET/PATCH /api/auth/me`, `POST /api/auth/change-password` |
 | Prediction | `POST /api/predict`, `POST /api/simulate`, `POST /api/sensors/simulated/sample`, `POST /api/experiments/sweep` |
 | External data | `POST /api/upload`, `GET /api/datasets`, `GET /api/datasets/{id}`, `GET /api/datasets/{id}/rows`, `PUT /api/datasets/{id}/mapping`, `POST /api/datasets/{id}/remap`, `DELETE /api/datasets/{id}`, `POST /api/datasets/{id}/rows/{i}/simulate`, `POST /api/process-batch`, `GET /api/dataset/template` |
-| Phone sensor | `POST /api/phone/taps`, `POST /api/phone/heartbeat`, `GET /api/phone/feed` |
 | Live sensors | `POST /api/sensors/data`, `GET /api/sensors/live-status`, `GET /api/sensors/latest`, `POST /api/sensors/stream/start`, `POST /api/sensors/stream/stop`, `POST /api/sensors/live/{seq}/predict`, `WS /ws/sensors` |
 | History & analytics | `GET /api/history`, `GET /api/history/export`, `GET/DELETE /api/history/{id}`, `GET /api/metrics` |
 | Model | `GET /api/model/status`, `POST /api/model/train` (admin), `GET /api/model/classes`, `GET /api/model/runs`, `GET /api/dataset/info`, `GET /api/dataset/download` |
@@ -425,7 +399,7 @@ Interactive docs: [neurogrip.vercel.app/docs](https://neurogrip.vercel.app/docs)
 
 Database tables: `users`, `user_settings`, `system_settings`, `prediction_history` (source, exact
 features, prediction, probabilities, confidence, grip breakdown, safety, ground truth, dataset/row
-reference, model version, latency), `datasets`, `model_training_runs`, `phone_taps`, `phone_devices`.
+reference, model version, latency), `datasets`, `model_training_runs`.
 
 ## Testing
 

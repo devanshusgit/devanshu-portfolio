@@ -542,26 +542,3 @@ export interface SweepPoint {
   safety_status?: SafetyStatus;
   errors?: RowIssue[];
 }
-
-/** A tap measured by a phone used as a real sensor (see backend/app/api/routes/phone.py). */
-export interface PhoneTap {
-  id: number;
-  created_at: string;
-  device: string;
-  features: Features;
-  measurements: Record<string, number | string | boolean>;
-  prediction: {
-    material: Material;
-    display_label: string;
-    confidence: number;
-    confidence_level: ConfidenceLevel;
-    grip_percent: number;
-    safety_status: SafetyStatus;
-  } | null;
-}
-
-export interface PhoneFeed {
-  taps: PhoneTap[];
-  device: { online: boolean; device: string | null; last_seen_s: number | null; live: { level?: number; listening?: boolean } };
-  server_time: string;
-}

@@ -129,31 +129,3 @@ class ModelTrainingRun(Base):
     f1_macro: Mapped[float] = mapped_column(Float)
     duration_s: Mapped[float] = mapped_column(Float)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-
-class PhoneTap(Base):
-    """One tap measured by a phone used as a real sensor (microphone + manual inputs).
-
-    Taps are relayed through the database (not in-process memory) so the phone and the
-    laptop dashboard see the same data even when the host runs several instances."""
-
-    __tablename__ = "phone_taps"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-    device: Mapped[str] = mapped_column(String(64), default="phone")
-    features: Mapped[dict] = mapped_column(JSON)
-    measurements: Mapped[dict] = mapped_column(JSON, default=dict)
-    prediction: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-
-
-class PhoneDevice(Base):
-    """Latest heartbeat from a user's phone sensor (connection status + live mic level)."""
-
-    __tablename__ = "phone_devices"
-
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    device: Mapped[str] = mapped_column(String(64), default="phone")
-    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    live: Mapped[dict] = mapped_column(JSON, default=dict)
