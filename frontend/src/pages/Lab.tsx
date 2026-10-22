@@ -7,6 +7,7 @@ import { api, errorMessage } from "@/api/client";
 import type { DataSource, Material, PredictionResult } from "@/api/types";
 import type { HandState } from "@/sim/stateMachine";
 import { WebcamControl, type WebcamFrame } from "@/components/hand/WebcamControl";
+import type { ObjectGuess } from "@/lib/objectMap";
 import { ObjectPicker } from "@/components/hand/ObjectPicker";
 import { SimulationWorkbench } from "@/components/hand/SimulationWorkbench";
 import { Badge, Button, ErrorState, Field, Input, LoadingBlock, Notice, Panel, Segmented, Select, Toggle } from "@/components/ui";
@@ -70,6 +71,10 @@ export default function Lab() {
   const [camError, setCamError] = useState<string | null>(null);
   const [camView, setCamView] = useState<{ closure: number | null; intent: number; applied: number }>({ closure: null, intent: 0, applied: 0 });
   const [camSense, setCamSense] = useState(0);
+  const [autoDetect, setAutoDetect] = useState(true);
+  type CamEvent = { id: number; at: Date; guess: ObjectGuess; result: PredictionResult | null };
+  const [camEvents, setCamEvents] = useState<CamEvent[]>([]);
+  const pendingEvent = useRef<number | null>(null);
   const camResultRef = useRef<PredictionResult | null>(null);
   camResultRef.current = camResult;
   const camShownAt = useRef(0);
@@ -78,8 +83,21 @@ export default function Lab() {
     let cancelled = false;
     setCamError(null);
     api
-      .simulate({ object_id: objectId, material: material || null, contact_quality: 0.95, persist: false, source_detail: "webcam_control" })
-      .then((r) => !cancelled && setCamResult(r))
+      .simulate({
+        object_id: objectId,
+        material: material || null,
+        contact_quality: 0.95,
+        // Readings triggered by a camera detection are saved, so History shows each live event.
+        persist: pendingEvent.current !== null,
+        source_detail: pendingEvent.current !== null ? "webcam_auto_detect" : "webcam_control",
+      })
+      .then((r) => {
+        if (cancelled) return;
+        setCamResult(r);
+        const evId = pendingEvent.current;
+        pendingEvent.current = null;
+        if (evId !== null) setCamEvents((evs) => evs.map((e) => (e.id === evId ? { ...e, result: r } : e)));
+      })
       .catch((e) => !cancelled && setCamError(errorMessage(e)));
     return () => {
       cancelled = true;
@@ -94,6 +112,15 @@ export default function Lab() {
       run.reset();
     };
   }, [source]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onCamObject = (guess: ObjectGuess) => {
+    const id = Date.now();
+    pendingEvent.current = id;
+    setCamEvents((evs) => [{ id, at: new Date(), guess, result: null }, ...evs].slice(0, 6));
+    setObjectId(guess.objectId);
+    setMaterial(guess.material);
+    setCamSense((n) => n + 1);
+  };
 
   const onCamFrame = (f: WebcamFrame) => {
     const m = run.motion;
@@ -275,7 +302,13 @@ export default function Lab() {
 
         {source === "WEBCAM" && (
           <div className="space-y-3" data-testid="webcam-panel">
-            <WebcamControl onFrame={onCamFrame} />
+            <WebcamControl onFrame={onCamFrame} onObject={onCamObject} detectObjects={autoDetect} />
+            <Toggle
+              checked={autoDetect}
+              onChange={setAutoDetect}
+              label="Recognise objects automatically"
+              description="Hold an object (bottle, cup, glass, spoon, scissors, ball, phone, book…) in front of the camera."
+            />
             {camError && <Notice tone="bad">{camError}</Notice>}
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl border border-line bg-surface-2/50 p-3">
@@ -303,8 +336,27 @@ export default function Lab() {
               <Button size="sm" onClick={() => setCamSense((n) => n + 1)} icon={<Sparkles className="h-3.5 w-3.5" />}>
                 Re-sense object
               </Button>
-              <span className="text-xs text-muted">Pick an object above. Open your hand, then slowly close it into a fist in front of the camera.</span>
+              <span className="text-xs text-muted">
+                {autoDetect ? "Show an object to the camera, then close your hand around it." : "Pick an object above. Open your hand, then slowly close it into a fist in front of the camera."}
+              </span>
             </div>
+            {camEvents.length > 0 && (
+              <div className="space-y-1" data-testid="camera-events">
+                <div className="text-xs font-medium uppercase tracking-wide text-muted">Live camera events</div>
+                {camEvents.map((e) => (
+                  <div key={e.id} className="flex flex-wrap justify-between gap-2 rounded-xl border border-line bg-surface-2/50 px-3 py-1.5 font-mono text-[12px] text-ink-2">
+                    <span>
+                      {e.at.toLocaleTimeString()} · camera saw <span className="font-semibold text-ink">{e.guess.coco}</span> {(e.guess.score * 100).toFixed(0)}% → {e.guess.label}
+                    </span>
+                    <span>
+                      {e.result
+                        ? `AI: ${e.result.prediction.display_label} ${(e.result.prediction.confidence * 100).toFixed(0)}% · safe grip ${e.result.grip.grip_percent.toFixed(0)}%${e.result.id ? ` · saved #${e.result.id}` : ""}`
+                        : "analysing…"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

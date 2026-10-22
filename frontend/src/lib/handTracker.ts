@@ -3,12 +3,31 @@
  * Gives 21 real 3D landmarks of the user's hand per frame; `handClosure` turns them into
  * a grip intent: 0 = open hand, 1 = closed fist.
  */
-import { FilesetResolver, HandLandmarker, type NormalizedLandmark } from "@mediapipe/tasks-vision";
+import { FilesetResolver, HandLandmarker, ObjectDetector, type NormalizedLandmark } from "@mediapipe/tasks-vision";
 
 export type Landmark = NormalizedLandmark;
 
+let filesetPromise: ReturnType<typeof FilesetResolver.forVisionTasks> | null = null;
+const fileset = () => (filesetPromise ??= FilesetResolver.forVisionTasks("/mediapipe/wasm"));
+
+/** Everyday-object detector (EfficientDet-Lite0, 80 COCO classes), served from public/models. */
+export async function createObjectDetector(): Promise<ObjectDetector> {
+  const fs = await fileset();
+  const options = (delegate: "GPU" | "CPU") => ({
+    baseOptions: { modelAssetPath: "/models/efficientdet_lite0.tflite", delegate },
+    runningMode: "VIDEO" as const,
+    scoreThreshold: 0.35,
+    maxResults: 5,
+  });
+  try {
+    return await ObjectDetector.createFromOptions(fs, options("GPU"));
+  } catch {
+    return ObjectDetector.createFromOptions(fs, options("CPU"));
+  }
+}
+
 export async function createHandTracker(): Promise<HandLandmarker> {
-  const fileset = await FilesetResolver.forVisionTasks("/mediapipe/wasm");
+  const fs = await fileset();
   const options = (delegate: "GPU" | "CPU") => ({
     baseOptions: { modelAssetPath: "/models/hand_landmarker.task", delegate },
     runningMode: "VIDEO" as const,
@@ -17,9 +36,9 @@ export async function createHandTracker(): Promise<HandLandmarker> {
     minTrackingConfidence: 0.5,
   });
   try {
-    return await HandLandmarker.createFromOptions(fileset, options("GPU"));
+    return await HandLandmarker.createFromOptions(fs, options("GPU"));
   } catch {
-    return HandLandmarker.createFromOptions(fileset, options("CPU"));
+    return HandLandmarker.createFromOptions(fs, options("CPU"));
   }
 }
 

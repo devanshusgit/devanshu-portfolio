@@ -358,6 +358,15 @@ decides what is *safe*. The material and safe grip limit come from the normal AI
 selected object; the 3D hand follows the user's hand but never exceeds that limit, and the panel shows
 **LIMITED BY SAFETY** when the user asks for more (e.g. a full fist on a glass).
 
+**Automatic object recognition.** The same camera also runs MediaPipe Object Detector
+(EfficientDet-Lite0, 80 everyday object classes) a few times per second and draws live labelled boxes
+on the floating camera window. When an object is seen steadily (bottle, cup, wine glass, spoon, fork,
+knife, scissors, ball, phone, book, bag…), `frontend/src/lib/objectMap.ts` maps it to a virtual object
+and its typical material, the Lab switches to that object, the AI pipeline analyses it and the result
+is saved to History (`webcam_auto_detect`). A live event feed lists every detection with its time,
+camera confidence, AI prediction and safe grip. The camera recognises the *object type*; the material
+is the typical one for that type, because a camera cannot see what something is made of.
+
 ## Live sensors & future hardware
 
 ```
