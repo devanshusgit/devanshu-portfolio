@@ -346,7 +346,7 @@ export default function Lab() {
                 {camEvents.map((e) => (
                   <div key={e.id} className="flex flex-wrap justify-between gap-2 rounded-xl border border-line bg-surface-2/50 px-3 py-1.5 font-mono text-[12px] text-ink-2">
                     <span>
-                      {e.at.toLocaleTimeString()} · camera saw <span className="font-semibold text-ink">{e.guess.coco}</span> {(e.guess.score * 100).toFixed(0)}% → {e.guess.label}
+                      {e.at.toLocaleTimeString()} · camera saw <span className="font-semibold text-ink">{e.guess.coco}</span> {(e.guess.score * 100).toFixed(0)}%{e.guess.metallic !== undefined && <> · metallic look {(e.guess.metallic * 100).toFixed(0)}%</>} → {e.guess.label}
                     </span>
                     <span>
                       {e.result

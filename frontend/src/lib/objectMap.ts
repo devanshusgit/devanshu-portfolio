@@ -7,12 +7,14 @@ export interface ObjectGuess {
   objectId: string;
   material: Material;
   label: string;
+  /** Visual metallic score 0..1 of the object's pixels (containers only), if measured. */
+  metallic?: number;
 }
 
 /**
  * COCO class (from the webcam object detector) -> virtual object + typical material.
- * The camera recognises the object type; the material is the usual one for that type
- * (a camera cannot see what something is made of).
+ * The camera recognises the object type; the material is the usual one for that type,
+ * except for containers that look metallic (see `withLook`).
  */
 export const COCO_TO_OBJECT: Record<string, { objectId: string; material: Material; label: string }> = {
   "wine glass": { objectId: "glass", material: "Glass", label: "Wine glass" },
@@ -45,4 +47,14 @@ export function pickObject(dets: { coco: string; score: number }[], minScore = 0
     if (!best || d.score > best.score) best = { coco: d.coco, score: d.score, ...m };
   }
   return best;
+}
+
+/** Containers that also come in stainless steel (steel bottle, steel mug, steel bowl…). */
+export const METAL_CAPABLE = new Set(["bottle", "cup", "bowl", "vase", "wine glass"]);
+
+/** Apply the visual metallic verdict: a metallic-looking bottle becomes a steel bottle. */
+export function withLook(guess: ObjectGuess, metallic: number | undefined, isMetal: boolean): ObjectGuess {
+  if (!METAL_CAPABLE.has(guess.coco)) return guess;
+  if (!isMetal) return { ...guess, metallic };
+  return { ...guess, metallic, material: "Steel", label: `Steel ${guess.label.toLowerCase()}` };
 }

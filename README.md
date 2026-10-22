@@ -365,7 +365,12 @@ knife, scissors, ball, phone, book, bag…), `frontend/src/lib/objectMap.ts` map
 and its typical material, the Lab switches to that object, the AI pipeline analyses it and the result
 is saved to History (`webcam_auto_detect`). A live event feed lists every detection with its time,
 camera confidence, AI prediction and safe grip. The camera recognises the *object type*; the material
-is the typical one for that type, because a camera cannot see what something is made of.
+is the typical one for that type, with one visual check: for containers (bottle, cup, bowl, vase, wine
+glass) `frontend/src/lib/materialLook.ts` measures how *metallic* the pixels inside the box look —
+grey/silver colour, bright highlights, strong reflection contrast, no black print, and reflection
+bands running in one direction (structure-tensor coherence). A metallic-looking bottle becomes a
+**steel bottle** (Steel material, bottle shape); otherwise it stays plastic. The score is shown live
+("metallic look 82 %"). It is a visual cue, not a material measurement, so unusual finishes can fool it.
 
 ## Live sensors & future hardware
 

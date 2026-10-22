@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { errorMessage } from "@/api/client";
 import { Badge, Button, Notice } from "@/components/ui";
 import { createHandTracker, createObjectDetector, HAND_CONNECTIONS, handClosure } from "@/lib/handTracker";
-import { COCO_TO_OBJECT, type ObjectGuess, pickObject } from "@/lib/objectMap";
+import { METAL_OFF, METAL_ON, metallicLook } from "@/lib/materialLook";
+import { COCO_TO_OBJECT, METAL_CAPABLE, type ObjectGuess, pickObject, withLook } from "@/lib/objectMap";
 
 export interface WebcamFrame {
   /** Smoothed grip intent 0 (open) .. 1 (fist); null when no hand is visible. */
@@ -47,7 +48,25 @@ export function WebcamControl({
   const [status, setStatus] = useState<"off" | "loading" | "tracking" | "nohand">("off");
   const [error, setError] = useState<string | null>(null);
   const [fps, setFps] = useState(0);
-  const [sees, setSees] = useState<{ coco: string; score: number } | null>(null);
+  const [sees, setSees] = useState<{ coco: string; score: number; metal?: boolean; metallic?: number } | null>(null);
+  const sampler = useRef<HTMLCanvasElement | null>(null);
+
+  /** Metallic-look score of the pixels inside a detection box (centre 70 %, to skip the background). */
+  const sampleLook = (v: HTMLVideoElement, b: Box): number | null => {
+    const c = (sampler.current ??= document.createElement("canvas"));
+    c.width = 64;
+    c.height = 64;
+    const g = c.getContext("2d", { willReadFrequently: true });
+    if (!g || b.w < 8 || b.h < 8) return null;
+    const sx = b.x + b.w * 0.15;
+    const sy = b.y + b.h * 0.15;
+    try {
+      g.drawImage(v, sx, sy, b.w * 0.7, b.h * 0.7, 0, 0, 64, 64);
+      return metallicLook(g.getImageData(0, 0, 64, 64).data).score;
+    } catch {
+      return null;
+    }
+  };
 
   const stop = () => {
     if (raf.current) cancelAnimationFrame(raf.current);
@@ -103,6 +122,10 @@ export function WebcamControl({
     let hits = 0;
     let misses = 0;
     let committed: string | null = null;
+    let lookClass: string | null = null;
+    let lookScores: number[] = [];
+    let isMetal = false;
+    let metalBoxes: { coco: string; metal: boolean; metallic: number } | null = null;
 
     const step = () => {
       const v = video.current;
@@ -122,14 +145,34 @@ export function WebcamControl({
             const b = det.boundingBox!;
             return { coco: c?.categoryName ?? "?", score: c?.score ?? 0, x: b.originX, y: b.originY, w: b.width, h: b.height };
           });
-          const guess = pickObject(boxes);
-          setSees(guess ? { coco: guess.coco, score: guess.score } : null);
+          const raw = pickObject(boxes);
+          // Containers: measure how metallic the object looks (rolling average over ~1 s).
+          let metallic: number | undefined;
+          if (raw && METAL_CAPABLE.has(raw.coco)) {
+            if (raw.coco !== lookClass) {
+              lookClass = raw.coco;
+              lookScores = [];
+              isMetal = false;
+            }
+            const box = boxes.filter((b) => b.coco === raw.coco).sort((a, b) => b.score - a.score)[0];
+            const s = box ? sampleLook(v, box) : null;
+            if (s !== null) lookScores = [...lookScores.slice(-4), s];
+            if (lookScores.length) {
+              metallic = lookScores.reduce((a, b) => a + b, 0) / lookScores.length;
+              isMetal = isMetal ? metallic >= METAL_OFF : metallic >= METAL_ON;
+            }
+          }
+          const guess = raw ? withLook(raw, metallic, isMetal) : null;
+          metalBoxes = guess && metallic !== undefined ? { coco: guess.coco, metal: isMetal, metallic } : null;
+          setSees(guess ? { coco: guess.coco, score: guess.score, metal: guess.material === "Steel" && METAL_CAPABLE.has(guess.coco), metallic } : null);
           if (guess) {
             misses = 0;
-            hits = guess.coco === candidate ? hits + 1 : 1;
-            candidate = guess.coco;
-            if (hits >= STABLE_HITS && guess.coco !== committed) {
-              committed = guess.coco;
+            // A plastic bottle and a steel bottle count as different detections.
+            const key = `${guess.coco}:${guess.material}`;
+            hits = key === candidate ? hits + 1 : 1;
+            candidate = key;
+            if (hits >= STABLE_HITS && key !== committed) {
+              committed = key;
               onObjectRef.current?.(guess);
             }
           } else if (++misses >= FORGET_MISSES) {
@@ -137,6 +180,7 @@ export function WebcamControl({
             committed = null;
             candidate = null;
             hits = 0;
+            lookClass = null;
           }
         } else if (!detectRef.current) {
           boxes = [];
@@ -145,7 +189,7 @@ export function WebcamControl({
         // Hand tracking (every frame).
         const res = t.detectForVideo(v, now);
         const lm = res.landmarks?.[0];
-        draw(lm, boxes);
+        draw(lm, boxes, metalBoxes);
         if (lm) {
           const c = handClosure(lm);
           smooth = smooth === null ? c : smooth * 0.55 + c * 0.45;
@@ -168,7 +212,7 @@ export function WebcamControl({
     raf.current = requestAnimationFrame(step);
   };
 
-  const draw = (lm: { x: number; y: number }[] | undefined, boxes: Box[]) => {
+  const draw = (lm: { x: number; y: number }[] | undefined, boxes: Box[], look: { coco: string; metal: boolean; metallic: number } | null) => {
     const c = canvas.current;
     const v = video.current;
     if (!c || !v) return;
@@ -185,7 +229,8 @@ export function WebcamControl({
       g.lineWidth = known ? 4 : 2;
       g.strokeRect(b.x, b.y, b.w, b.h);
       // The canvas is mirrored with CSS; un-mirror the text so it reads normally.
-      const text = `${b.coco} ${(b.score * 100).toFixed(0)}%`;
+      const lookText = look && look.coco === b.coco ? (look.metal ? ` · METAL ${(look.metallic * 100).toFixed(0)}%` : ` · not metal ${(look.metallic * 100).toFixed(0)}%`) : "";
+      const text = `${b.coco} ${(b.score * 100).toFixed(0)}%${lookText}`;
       g.save();
       g.scale(-1, 1);
       g.font = "bold 22px ui-monospace, monospace";
@@ -235,7 +280,7 @@ export function WebcamControl({
         </Badge>
         {running && detectObjects && (
           <Badge tone={sees ? "good" : "neutral"} dot>
-            {sees ? `SEES: ${sees.coco.toUpperCase()} ${(sees.score * 100).toFixed(0)}%` : "NO OBJECT"}
+            {sees ? `SEES: ${sees.metal ? "STEEL " : ""}${sees.coco.toUpperCase()} ${(sees.score * 100).toFixed(0)}%${sees.metallic !== undefined ? ` · metallic look ${(sees.metallic * 100).toFixed(0)}%` : ""}` : "NO OBJECT"}
           </Badge>
         )}
         {running && <span className="font-mono text-xs text-muted">{fps.toFixed(0)} fps</span>}
@@ -255,7 +300,7 @@ export function WebcamControl({
             <Badge tone="bad" dot>
               LIVE
             </Badge>
-            {detectObjects && sees && <Badge tone="good">{`${sees.coco} ${(sees.score * 100).toFixed(0)}%`}</Badge>}
+            {detectObjects && sees && <Badge tone="good">{`${sees.metal ? "steel " : ""}${sees.coco} ${(sees.score * 100).toFixed(0)}%`}</Badge>}
           </div>
         </div>
       </div>
