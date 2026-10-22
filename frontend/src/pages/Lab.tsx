@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { Database, Play, Radio, RotateCcw, SlidersHorizontal, Smartphone, Sparkles } from "lucide-react";
+import { Camera, Database, Play, Radio, RotateCcw, SlidersHorizontal, Smartphone, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
-import { api } from "@/api/client";
-import type { DataSource, Material } from "@/api/types";
+import { api, errorMessage } from "@/api/client";
+import type { DataSource, Material, PredictionResult } from "@/api/types";
+import type { HandState } from "@/sim/stateMachine";
+import { WebcamControl, type WebcamFrame } from "@/components/hand/WebcamControl";
 import { ObjectPicker } from "@/components/hand/ObjectPicker";
 import { SimulationWorkbench } from "@/components/hand/SimulationWorkbench";
 import { Badge, Button, ErrorState, Field, Input, LoadingBlock, Notice, Panel, Segmented, Select, Toggle } from "@/components/ui";
@@ -18,7 +20,10 @@ import { useGraspRun } from "@/sim/useGraspRun";
 
 const SPEEDS = [0.5, 1, 2, 5];
 
-type LabSource = DataSource | "PHONE";
+type LabSource = DataSource | "PHONE" | "WEBCAM";
+
+/** Webcam mode: fingers touch the object at this much hand closure; closing further asks for grip force. */
+const CONTACT_AT = 0.4;
 
 export default function Lab() {
   const catalog = useCatalog();
@@ -59,6 +64,56 @@ export default function Lab() {
   }, [source]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const busy = run.running;
+
+  // WEBCAM: the user's real hand (MediaPipe landmarks) is the grip command; the AI pipeline
+  // decides the material and the safe grip limit, and the hand never exceeds that limit.
+  const [camResult, setCamResult] = useState<PredictionResult | null>(null);
+  const [camError, setCamError] = useState<string | null>(null);
+  const [camView, setCamView] = useState<{ closure: number | null; intent: number; applied: number }>({ closure: null, intent: 0, applied: 0 });
+  const [camSense, setCamSense] = useState(0);
+  const camResultRef = useRef<PredictionResult | null>(null);
+  camResultRef.current = camResult;
+  const camShownAt = useRef(0);
+  useEffect(() => {
+    if (source !== "WEBCAM") return;
+    let cancelled = false;
+    setCamError(null);
+    api
+      .simulate({ object_id: objectId, material: material || null, contact_quality: 0.95, persist: false, source_detail: "webcam_control" })
+      .then((r) => !cancelled && setCamResult(r))
+      .catch((e) => !cancelled && setCamError(errorMessage(e)));
+    return () => {
+      cancelled = true;
+    };
+  }, [source, objectId, material, camSense]);
+  useEffect(() => {
+    if (source !== "WEBCAM") return;
+    run.reset();
+    const id = setTimeout(() => run.motion.to("approach", 1, 1000).catch(() => undefined), 750);
+    return () => {
+      clearTimeout(id);
+      run.reset();
+    };
+  }, [source]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onCamFrame = (f: WebcamFrame) => {
+    const m = run.motion;
+    const allowed = camResultRef.current?.grip.grip_percent ?? 0;
+    const c = f.closure ?? 0;
+    const intent = Math.max(0, (c - CONTACT_AT) / (1 - CONTACT_AT)) * 100;
+    const applied = Math.min(intent, allowed);
+    m.set("closure", Math.min(1, c / CONTACT_AT));
+    m.set("squeeze", allowed > 0 ? applied / allowed : 0);
+    m.set("sensors", c >= CONTACT_AT ? 1 : 0.25);
+    const now = performance.now();
+    if (now - camShownAt.current > 90 || f.closure === null) {
+      camShownAt.current = now;
+      setCamView({ closure: f.closure, intent, applied });
+    }
+  };
+  const camAllowed = camResult?.grip.grip_percent ?? 0;
+  const camLimited = camView.closure !== null && camView.intent > camAllowed + 0.5;
+  const camState: HandState = !camResult || camView.closure === null ? "IDLE" : camView.closure < CONTACT_AT ? "OPEN" : camLimited || camView.applied >= camAllowed - 0.5 ? "HOLDING" : "GRIPPING";
 
   // PHONE: real taps measured by a phone's microphone, relayed through the database.
   const phone = usePhoneFeed();
@@ -149,6 +204,7 @@ export default function Lab() {
             { value: "UPLOADED", label: "UPLOAD DATA", icon: <Database className="h-3.5 w-3.5" /> },
             { value: "LIVE", label: "LIVE SENSOR", icon: <Radio className="h-3.5 w-3.5" /> },
             { value: "PHONE", label: "PHONE SENSOR", icon: <Smartphone className="h-3.5 w-3.5" /> },
+            { value: "WEBCAM", label: "WEBCAM CONTROL", icon: <Camera className="h-3.5 w-3.5" /> },
           ]}
         />
         <ObjectPicker objects={catalog.objects} value={objectId} onChange={setObjectId} disabled={busy} />
@@ -254,6 +310,41 @@ export default function Lab() {
           </div>
         )}
 
+        {source === "WEBCAM" && (
+          <div className="space-y-3" data-testid="webcam-panel">
+            <WebcamControl onFrame={onCamFrame} />
+            {camError && <Notice tone="bad">{camError}</Notice>}
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-line bg-surface-2/50 p-3">
+                <div className="text-xs text-muted">Your grip command (webcam)</div>
+                <div className="font-mono text-2xl font-semibold">{camView.closure === null ? "–" : `${camView.intent.toFixed(0)}%`}</div>
+                <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-3">
+                  <div className="h-full bg-accent" style={{ width: `${camView.closure === null ? 0 : camView.intent}%` }} />
+                </div>
+                <div className="mt-1 text-[11px] text-muted">hand closed {camView.closure === null ? "–" : `${(camView.closure * 100).toFixed(0)}%`}</div>
+              </div>
+              <div className="rounded-xl border border-line bg-surface-2/50 p-3">
+                <div className="text-xs text-muted">NeuroGrip safe limit (AI)</div>
+                <div className="font-mono text-2xl font-semibold">{camResult ? `${camAllowed.toFixed(0)}%` : "…"}</div>
+                <div className="mt-1 text-[11px] text-muted">
+                  {camResult ? `${camResult.prediction.display_label} · ${(camResult.prediction.confidence * 100).toFixed(0)}% · ${camResult.grip.grip_mode}` : "sensing object…"}
+                </div>
+              </div>
+              <div className={`rounded-xl border p-3 ${camLimited ? "border-warn/60 bg-warn/10" : "border-line bg-surface-2/50"}`}>
+                <div className="text-xs text-muted">Grip applied by the hand</div>
+                <div className="font-mono text-2xl font-semibold">{camView.closure === null ? "–" : `${camView.applied.toFixed(0)}%`}</div>
+                <div className="mt-1 text-[11px]">{camLimited ? <span className="font-medium text-warn">LIMITED BY SAFETY: {camResult?.prediction.display_label} is protected</span> : <span className="text-muted">follows your hand</span>}</div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" onClick={() => setCamSense((n) => n + 1)} icon={<Sparkles className="h-3.5 w-3.5" />}>
+                Re-sense object
+              </Button>
+              <span className="text-xs text-muted">Pick an object above. Open your hand, then slowly close it into a fist in front of the camera.</span>
+            </div>
+          </div>
+        )}
+
         {source === "PHONE" && (
           <div className="space-y-3" data-testid="phone-panel">
             <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -304,7 +395,7 @@ export default function Lab() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
+        <div className={source === "WEBCAM" ? "hidden" : "flex flex-wrap items-center gap-2 border-t border-line pt-4"}>
           <Button
             variant="primary"
             size="lg"
@@ -340,7 +431,7 @@ export default function Lab() {
         </div>
         <Badge tone="neutral">{catalog.gripNote ? "grip = normalised %" : ""}</Badge>
       </div>
-      <SimulationWorkbench run={run} object={object} knownMaterial={knownMaterial} source={source === "PHONE" ? "LIVE" : source} controls={controls} sceneHeight="h-[420px] lg:h-[480px]" />
+      <SimulationWorkbench run={source === "WEBCAM" ? { ...run, result: camResult, state: camState, visits: [] } : run} object={object} knownMaterial={knownMaterial} source={source === "PHONE" || source === "WEBCAM" ? "LIVE" : source} controls={controls} sceneHeight="h-[420px] lg:h-[480px]" />
     </div>
   );
 }

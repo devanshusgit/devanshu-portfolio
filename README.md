@@ -33,7 +33,7 @@ advances on real events. Every result is stored with its exact input.
 - [Features](#features) · [Screenshots](#screenshots) · [Architecture](#architecture) · [Tech stack](#tech-stack)
 - [Quick start](#quick-start) (Docker, local, Vercel or Render) · [Environment variables](#environment-variables)
 - [Machine learning](#machine-learning) · [Grip engine](#grip-engine)
-- [External data (CSV/JSON)](#external-data-csvjson) · [Phone as a real sensor](#phone-as-a-real-sensor) · [Live sensors & hardware](#live-sensors--future-hardware)
+- [External data (CSV/JSON)](#external-data-csvjson) · [Webcam control](#webcam-control-real-hand-input) · [Phone as a real sensor](#phone-as-a-real-sensor) · [Live sensors & hardware](#live-sensors--future-hardware)
 - [API overview](#api-overview) · [Testing](#testing) · [Examiner demo script](#examiner-demo-script)
 - [Simulation vs real hardware](#simulation-vs-real-hardware) · [Limitations](#limitations)
 
@@ -346,7 +346,18 @@ Example files in [`sample_data/`](sample_data): labelled CSV, unlabelled CSV, JS
 deliberately messy CSV with aliases, Fahrenheit, resistivity, milliseconds and invalid cells
 (regenerate with `python backend/scripts/generate_sample_data.py`).
 
-## Phone as a real sensor
+## Webcam control (real hand input)
+
+**Virtual Lab → WEBCAM CONTROL** turns the laptop webcam into a real input device. Google MediaPipe
+Hand Landmarker (`@mediapipe/tasks-vision`, served by the app itself from `public/`) tracks 21
+landmarks of the user's hand in the browser; `frontend/src/lib/handTracker.ts` converts finger curl
+into a grip command (0 % open hand → 100 % fist).
+
+This mirrors how a real prosthesis works: the user supplies the *intent*, the hand's own intelligence
+decides what is *safe*. The material and safe grip limit come from the normal AI pipeline for the
+selected object; the 3D hand follows the user's hand but never exceeds that limit, and the panel shows
+**LIMITED BY SAFETY** when the user asks for more (e.g. a full fist on a glass).
+
 
 Until the tactile hardware is ready, any smartphone can act as a **real, live sensor**.
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -23,6 +24,9 @@ from app.services.accounts import seed_accounts
 from app.services.pipeline import SampleValidationError
 
 log = logging.getLogger("neurogrip")
+
+# Webcam hand tracking loads a WebAssembly engine; browsers compile it fastest with this type.
+mimetypes.add_type("application/wasm", ".wasm")
 
 
 def _startup(ctx: AppContext) -> None:
