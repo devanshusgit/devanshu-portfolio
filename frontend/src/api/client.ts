@@ -14,6 +14,8 @@ import type {
   MaterialInfo,
   Metrics,
   ModelStatus,
+  PhoneFeed,
+  PhoneTap,
   PredictionResult,
   RowsPage,
   SensorReading,
@@ -168,6 +170,10 @@ export const api = {
   predictLive: (seq: number, body: { object_id?: string | null; persist?: boolean }) => post<PredictionResult>(`/api/sensors/live/${seq}/predict`, body),
   postSensorData: (samples: Partial<Features>[], device_id = "browser-console", simulated = true) =>
     post<{ accepted: number }>("/api/sensors/data", { device_id, simulated, samples }),
+
+  phoneHeartbeat: (body: { device: string; level: number; listening: boolean }) => post<{ ok: boolean }>("/api/phone/heartbeat", body),
+  phoneTap: (body: { device: string; features: Features; measurements: Record<string, number | string | boolean> }) => post<PhoneTap>("/api/phone/taps", body),
+  phoneFeed: (after_id: number) => get<PhoneFeed>("/api/phone/feed", { after_id }),
 
   history: (f: HistoryFilters) => get<HistoryPage>("/api/history", f as Query),
   historyItem: (id: number) => get<HistoryItem>(`/api/history/${id}`),

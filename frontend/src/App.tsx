@@ -21,6 +21,7 @@ const ModelLab = lazy(() => import("@/pages/ModelLab"));
 const Experiments = lazy(() => import("@/pages/Experiments"));
 const SettingsPage = lazy(() => import("@/pages/Settings"));
 const Admin = lazy(() => import("@/pages/Admin"));
+const Phone = lazy(() => import("@/pages/Phone"));
 const SceneTest = import.meta.env.DEV ? lazy(() => import("@/pages/SceneTest")) : null;
 
 function RequireAuth({ children, admin }: { children: ReactNode; admin?: boolean }) {
@@ -64,6 +65,14 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route
+            path="/phone"
+            element={
+              <RequireAuth>
+                <Phone />
+              </RequireAuth>
+            }
+          />
           <Route
             element={
               <RequireAuth>
